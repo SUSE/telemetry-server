@@ -4,10 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -37,15 +35,15 @@ func (d *DbConnection) Connect() (err error) {
 }
 
 const clientsTableColumns = `(
-	id INTEGER NOT NULL PRIMARY KEY,
-	clientUUID VARCHAR(64) NOT NULL,
+	id               INTEGER     NOT NULL PRIMARY KEY,
+	clientInstanceId VARCHAR(64) NOT NULL,
 	registrationDate VARCHAR(32) NOT NULL,
-	authToken VARCHAR(32) NOT NULL
+	authToken        VARCHAR(32) NOT NULL
 )`
 
 type ClientsRow struct {
 	Id               int64  `json:"id"`
-	ClientUUID       string `json:"clientUUID"`
+	ClientInstanceId string `json:"clientInstanceId"`
 	RegistrationDate string `json:"registrationDate"`
 	AuthToken        string `json:"AuthToken"`
 }
@@ -56,10 +54,10 @@ func (c *ClientsRow) String() string {
 }
 
 func (c *ClientsRow) Exists(DB *sql.DB) bool {
-	row := DB.QueryRow(`SELECT id FROM clients WHERE clientUUID = ?`, c.ClientUUID)
+	row := DB.QueryRow(`SELECT id FROM clients WHERE clientInstanceId = ?`, c.ClientInstanceId)
 	if err := row.Scan(&c.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("failed when checking for existence of client with clientUUID = %q: %s", c.ClientUUID, err.Error())
+			log.Printf("failed when checking for existence of client with clientInstanceId = %q: %s", c.ClientInstanceId, err.Error())
 		}
 		return false
 	}
@@ -177,14 +175,18 @@ type App struct {
 	Handler http.Handler
 }
 
-func (a App) ListenOn() string {
-	return a.Address.String()
-}
+func NewApp(driver, dataSource, hostname string, port int, handler http.Handler) *App {
+	a := new(App)
 
-func (a *App) Setup(driver, dataSource, hostname string, port int, handler http.Handler) {
 	a.DB.Setup(driver, dataSource)
 	a.Address.Setup(hostname, port)
 	a.Handler = handler
+
+	return a
+}
+
+func (a *App) ListenOn() string {
+	return a.Address.String()
 }
 
 func (a *App) Initialize() {
@@ -198,80 +200,6 @@ func (a *App) Initialize() {
 }
 
 func (a *App) Run() {
-	log.Println("Starting Telemetry Server App")
+	log.Printf("Starting Telemetry Server App on %s", a.ListenOn())
 	log.Fatal(http.ListenAndServe(a.ListenOn(), a.Handler))
-}
-
-// Client Registration Handling
-type ClientRegistrationRequest struct {
-	ClientUUID string `json:"clientUUID"`
-}
-
-func (c *ClientRegistrationRequest) String() string {
-	bytes, _ := json.Marshal(c)
-
-	return string(bytes)
-}
-
-type ClientRegistrationResponse struct {
-	ClientID  int64  `json:"clientID"`
-	AuthToken string `json:"authToken"`
-}
-
-func (c *ClientRegistrationResponse) String() string {
-	bytes, _ := json.Marshal(c)
-
-	return string(bytes)
-}
-
-// RegisterClient is responsible for handling client registrations
-func (a *App) RegisterClient(ar *AppRequest) {
-	// retrieve the request body
-	reqBody, err := io.ReadAll(ar.R.Body)
-	if err != nil {
-		ar.ErrorResponse(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// unmarshal the request body to the request struct
-	var crReq ClientRegistrationRequest
-	err = json.Unmarshal(reqBody, &crReq)
-	if err != nil {
-		ar.ErrorResponse(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// register the client
-	client := ClientsRow{ClientUUID: crReq.ClientUUID}
-	if client.Exists(a.DB.Conn) {
-		ar.ErrorResponse(http.StatusConflict, "specified clientUUID already exists")
-		return
-	}
-
-	client.RegistrationDate = time.Now().UTC().Format(time.RFC3339Nano)
-	client.AuthToken = "sometoken"
-	res, err := a.DB.Conn.Exec(`INSERT INTO clients(clientUUID, RegistrationDate, AuthToken) VALUES(?,?,?)`, client.ClientUUID, client.RegistrationDate, client.AuthToken)
-	if err != nil {
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to insert clients row")
-		return
-	}
-	client.Id, err = res.LastInsertId()
-	if err != nil {
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to retrieve client id for inserted clients row")
-		return
-	}
-
-	// initialise a client registration response
-	crResp := ClientRegistrationResponse{
-		ClientID:  client.Id,
-		AuthToken: client.AuthToken,
-	}
-
-	// respond success with the client registration response
-	ar.JsonResponse(http.StatusOK, crResp)
-}
-
-// Hello is a test function
-func Hello() {
-	fmt.Println("Starting the Telemetry Server App")
 }

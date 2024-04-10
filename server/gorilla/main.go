@@ -20,24 +20,33 @@ type routerWrapper struct {
 	app    *app.App
 }
 
-func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
-	req := app.AppRequest{W: w, R: r, Vars: mux.Vars(r)}
+func newRouterWrapper(router *mux.Router, app *app.App) *routerWrapper {
+	return &routerWrapper{router: router, app: app}
+}
 
-	rw.app.RegisterClient(&req)
+func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
+	req := &app.AppRequest{W: w, R: r, Vars: mux.Vars(r)}
+
+	rw.app.RegisterClient(req)
+}
+
+func (rw *routerWrapper) reportTelemetry(w http.ResponseWriter, r *http.Request) {
+	req := &app.AppRequest{W: w, R: r, Vars: mux.Vars(r)}
+
+	rw.app.ReportTelemetry(req)
 }
 
 func main() {
-	log.Println("Starting gorilla/mux based server")
-	app.Hello()
+	log.Println("Preparing to start gorilla/mux based server")
 
 	router := mux.NewRouter()
 
-	a := app.App{}
-	a.Setup(DB_DRIVER, DB_URI, HOST, PORT, router)
+	a := app.NewApp(DB_DRIVER, DB_URI, HOST, PORT, router)
 
-	wrapper := routerWrapper{router: router, app: &a}
+	wrapper := newRouterWrapper(router, a)
 
-	router.HandleFunc("/register", wrapper.registerClient).Methods("POST")
+	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
+	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
 
 	a.Initialize()
 	a.Run()
