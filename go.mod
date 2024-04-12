@@ -1,6 +1,6 @@
 module github.com/SUSE/telemetry-server
 
-go 1.21.0
+go 1.21
 
 replace github.com/SUSE/telemetry => ../telemetry
 

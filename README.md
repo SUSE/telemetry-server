@@ -1,10 +1,9 @@
 # telemetry-server
 Proof of Concept Telemetry Server scaffolding
 
-To use this code you will need to checkout the 3 telemetry POC related
+To use this code you will need to checkout the 2 telemetry POC related
 repos under the same directory:
 
-* github.com/mbelur/telemetrylib
 * github.com/rtamalin/telemetry
 * github.com/rtamalin/telemetry-server
 
