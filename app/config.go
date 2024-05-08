@@ -5,24 +5,27 @@ import (
 	"log"
 	"os"
 
+	"github.com/SUSE/telemetry/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
+// Default server config path
+const DEFAULT_CONFIG string = "/etc/susetelemetry/server.cfg"
+
 // Datastore config for staging the data
-type DataStoresConfig struct {
-	ItemDS   string `yaml:"items"`
-	BundleDS string `yaml:"bundles"`
-	ReportDS string `yaml:"reports"`
-}
+//type DataStoresConfig struct {
+//	ItemDS   string `yaml:"items"`
+//	BundleDS string `yaml:"bundles"`
+//	ReportDS string `yaml:"reports"`
+//}
 
 // API server config
 type APIConfig struct {
 	Host string `yaml:"host"`
-	Port string `yaml:"port"`
+	Port int    `yaml:"port"`
 }
 
-type DBConfig struct {
-	Drive    string `yaml:"postgres"`
+type PQLConfig struct {
 	Host     string `yaml:"host"`
 	Port     string `yaml:"port"`
 	User     string `yaml:"user"`
@@ -32,10 +35,20 @@ type DBConfig struct {
 	Cert     string `yaml:"cert"`
 }
 
+type DBConfig struct {
+	Driver string `yaml:"driver"`
+	Params string `yaml:"params"`
+}
+
+func (d *DBConfig) Valid() error {
+
+	return nil
+}
+
 type Config struct {
 	cfgPath    string
-	API        APIConfig        `yaml:"api"`
-	DataStores DataStoresConfig `yaml:"datastores"`
+	API        APIConfig               `yaml:"api"`
+	DataStores config.DataStoresConfig `yaml:"datastores"`
 	DataBases  struct {
 		Telemetry DBConfig `yaml:"telemetry"`
 		//add other databases here

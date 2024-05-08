@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -36,12 +38,30 @@ func (rw *routerWrapper) reportTelemetry(w http.ResponseWriter, r *http.Request)
 	rw.app.ReportTelemetry(req)
 }
 
+// options is a struct of the options
+type options struct {
+	config string
+}
+
+func (o options) String() string {
+	return fmt.Sprintf("Options: config=%q", o.config)
+}
+
+var opts options
+
 func main() {
-	log.Println("Preparing to start gorilla/mux based server")
+	log.Printf("Preparing to start gorilla/mux based server with options: %s", opts)
 
 	router := mux.NewRouter()
 
-	a := app.NewApp(DB_DRIVER, DB_URI, HOST, PORT, router)
+	cfg := app.NewConfig(opts.config)
+	if err := cfg.Load(); err != nil {
+		log.Fatal(err)
+	}
+
+	log.Printf("Config: %v", cfg)
+
+	a := app.NewApp(cfg, router)
 
 	wrapper := newRouterWrapper(router, a)
 
@@ -50,4 +70,9 @@ func main() {
 
 	a.Initialize()
 	a.Run()
+}
+
+func init() {
+	flag.StringVar(&opts.config, "config", app.DEFAULT_CONFIG, "Path to config file to use")
+	flag.Parse()
 }

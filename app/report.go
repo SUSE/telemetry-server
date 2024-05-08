@@ -21,7 +21,6 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	log.Printf("INF: %s %s reqBody: %q", ar.R.Method, ar.R.URL, reqBody)
 
 	// unmarshal the request body to the request struct
-	//var trReq telemetrylib.TelemetryReport
 	var trReq restapi.TelemetryReportRequest
 	err = json.Unmarshal(reqBody, &trReq)
 	if err != nil {
@@ -30,10 +29,16 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 	log.Printf("INF: %s %s trReq: %q", ar.R.Method, ar.R.URL, &trReq)
 
-	// initialise a client registration response
+	// store received telemetry report in reports datastore
+	a.Extractor.AddReport(&trReq.TelemetryReport)
+
+	// trigger telemetry processing
+	a.ProcessTelemetry()
+
+	// initialise a telemetry report response
 	trResp := restapi.NewTelemetryReportResponse(0, types.Now())
 	log.Printf("INF: %s %s trResp: %q", ar.R.Method, ar.R.URL, trResp)
 
-	// respond success with the client registration response
+	// respond success with the telemetry report response
 	ar.JsonResponse(http.StatusOK, trResp)
 }

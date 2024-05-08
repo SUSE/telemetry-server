@@ -17,3 +17,7 @@ require (
 )
 
 replace github.com/SUSE/telemetry => ../../telemetry/
+
+replace github.com/SUSE/telemetry/pkg/config => ../../telemetry/pkg/config
+
+replace github.com/SUSE/telemetry/pkg/lib => ../../telemetry/pkg/lib

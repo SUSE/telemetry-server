@@ -4,8 +4,8 @@ Proof of Concept Telemetry Server scaffolding
 To use this code you will need to checkout the 2 telemetry POC related
 repos under the same directory:
 
-* github.com/rtamalin/telemetry
-* github.com/rtamalin/telemetry-server
+* github.com/SUSE/telemetry
+* github.com/SUSE/telemetry-server
 
 Then you can cd to the telemetry-server/server/gorrila directory and run
 the server as follows:
