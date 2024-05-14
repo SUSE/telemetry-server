@@ -36,7 +36,7 @@ func (c *ClientsRow) Exists(DB *sql.DB) bool {
 	return true
 }
 
-const tagElementTableColumns = `(
+const tagElementsTableColumns = `(
 	id INTEGER NOT NULL PRIMARY KEY,
 	tag VARCHAR(256) NOT NULL
 )`
@@ -62,17 +62,33 @@ func (t *TagElementRow) Exists(DB *sql.DB) bool {
 	return true
 }
 
-const tagListTableColumns = `(
-	telemetryId INTEGER NOT NULL,
+func (t *TagElementRow) Insert(DB *sql.DB) (err error) {
+	res, err := DB.Exec(`INSERT INTO tagElements(tag) VALUES(?)`, t.Tag)
+	if err != nil {
+		log.Printf("ERR: failed to add tag %q to tagElements table: %s", t.Tag, err.Error())
+		return err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		log.Printf("ERR: failed to retrieve id for inserted tag %q: %s", t.Tag, err.Error())
+		return err
+	}
+	t.Id = id
+
+	return
+}
+
+const tagListsTableColumns = `(
+	telemetryDataId INTEGER NOT NULL,
 	tagId INTEGER NOT NULL,
-	FOREIGN KEY (telemetryId) REFERENCES telemetryData (id)
-	FOREIGN KEY (tagId) REFERENCES tagElement (id)
-	PRIMARY KEY (telemetryId, tagId)
+	FOREIGN KEY (telemetryDataId) REFERENCES telemetryData (id)
+	FOREIGN KEY (tagId) REFERENCES tagElements (id)
+	PRIMARY KEY (telemetryDataId, tagId)
 )`
 
 type TagListRow struct {
-	TelemetryId int64 `json:"telemetryId"`
-	TagId       int64 `json:"tagId"`
+	TelemetryDataId int64 `json:"telemetryDataId"`
+	TagId           int64 `json:"tagId"`
 }
 
 func (t *TagListRow) String() string {
@@ -81,31 +97,49 @@ func (t *TagListRow) String() string {
 }
 
 func (t *TagListRow) Exists(DB *sql.DB) bool {
-	row := DB.QueryRow(`SELECT telemetryId FROM tagList WHERE telemetryId = ? AND tagId = ?`, t.TelemetryId, t.TagId)
+	row := DB.QueryRow(`SELECT telemetryDataId FROM tagLists WHERE telemetryDataId = ? AND tagId = ?`, t.TelemetryDataId, t.TagId)
 	var tid int64
 	if err := row.Scan(&tid); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of telemetryId %q tag %q: %s", t.TelemetryId, t.TagId, err.Error())
+			log.Printf("ERR: failed when checking for existence of telemetryDataId %q tag %q: %s", t.TelemetryDataId, t.TagId, err.Error())
 		}
 		return false
 	}
 	return true
 }
 
+func (t *TagListRow) Insert(DB *sql.DB) (err error) {
+	_, err = DB.Exec(
+		`INSERT INTO tagLists(telemetryDataId, tagId) VALUES(?, ?)`,
+		t.TelemetryDataId, t.TagId,
+	)
+	if err != nil {
+		log.Printf("ERR: failed to add tagList (%d, %d): %s", t.TelemetryDataId, t.TagId, err.Error())
+		return err
+	}
+
+	return
+}
+
+// NOTE: clientID is technically a foreign key reference to the client.id
+// only so long as we are not dealing with relayed bundles; once relays
+// are part of the picture then the clientId in the Bundle header can be
+// different then the clientId in a received Report header.
 const telemetryDataTableColumns = `(
 	id INTEGER NOT NULL PRIMARY KEY,
-	clientID INTEGER NOT NULL,
+	clientId INTEGER NOT NULL,
+	customerId INTEGER NOT NULL,
 	telemetryId VARCHAR(64) NOT NULL,
 	telemetryType VARCHAR(64) NOT NULL,
 	timestamp VARCHAR(32) NOT NULL,
 	staged BOOLEAN DEFAULT false,
-	dataItem BLOB NOT NULL,
-	FOREIGN KEY (clientId) REFERENCES clients (id)
+	dataItem BLOB NOT NULL
 )`
 
 type TelemetryDataRow struct {
 	Id            int64       `json:"id"`
-	ClientId      string      `json:"clientId"`
+	ClientId      int64       `json:"clientId"`
+	CustomerId    string      `json:"customerId"`
 	TelemetryId   string      `json:"telemetryId"`
 	TelemetryType string      `json:"telemetryType"`
 	Timestamp     string      `json:"timestamp"`
@@ -129,10 +163,29 @@ func (t *TelemetryDataRow) Exists(DB *sql.DB) bool {
 	return true
 }
 
+func (t *TelemetryDataRow) Insert(DB *sql.DB) (err error) {
+	res, err := DB.Exec(
+		`INSERT INTO telemetryData(clientId, customerId, telemetryId, telemetryType, timestamp, dataItem) VALUES(?, ?, ?, ?, ?, ?)`,
+		t.ClientId, t.CustomerId, t.TelemetryId, t.TelemetryType, t.Timestamp, t.DataItem,
+	)
+	if err != nil {
+		log.Printf("failed to add telemetryData entry for customerId %q telemetryId %q: %s", t.CustomerId, t.TelemetryId, err.Error())
+		return err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		log.Printf("ERR: failed to retrieve id for inserted telemetryData %q: %s", t.TelemetryId, err.Error())
+		return err
+	}
+	t.Id = id
+
+	return
+}
+
 // list of predefined tables
 var dbTables = map[string]string{
 	"clients":       clientsTableColumns,
-	"tagElement":    tagElementTableColumns,
-	"tagList":       tagListTableColumns,
+	"tagElements":   tagElementsTableColumns,
+	"tagLists":      tagListsTableColumns,
 	"telemetryData": telemetryDataTableColumns,
 }

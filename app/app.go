@@ -131,11 +131,6 @@ func (a *App) ProcessTelemetry() (err error) {
 		log.Printf("ERR: processing bundles failed: %s", err.Error())
 	}
 
-	err = a.ProcessDataItems()
-	if err != nil {
-		log.Printf("ERR: processing data items failed: %s", err.Error())
-	}
-
 	return
 }
 
@@ -161,58 +156,37 @@ func (a *App) ProcessReports() (err error) {
 }
 
 func (a *App) ProcessBundles() (err error) {
-
-	numBundles, err := a.Extractor.BundleCount()
+	bundles, err := a.Extractor.GetBundles()
 	if err != nil {
-		log.Printf("ERR: failed to determine number of staged bundles: %s", err.Error())
+		log.Printf("ERR: failed to retrieve bundles: %s", err.Error())
 		return
 	}
 
-	log.Printf("INF: attempting to process %d bundles into data items", numBundles)
+	// process available bundles, extracting the data items and
+	// storing them in the telemetry DB
+	for _, bundle := range bundles {
+		bKey := bundle.Key()
+		log.Printf("INF: processing bundle %q", bKey)
 
-	err = a.Extractor.BundlesToDataItems()
-	if err != nil {
-		log.Printf("ERR: failed to process bundles to data items: %s", err.Error())
-		return
-	}
-
-	log.Printf("INF: successfully processed %d bundles into data items", numBundles)
-
-	return
-}
-
-func (a *App) ProcessDataItems() (err error) {
-
-	numDataItems, err := a.Extractor.DataItemCount()
-	if err != nil {
-		log.Printf("ERR: failed to determine number of staged data items: %s", err.Error())
-		return
-	}
-
-	log.Printf("INF: attempting to process %d data items", numDataItems)
-
-	dataItems, err := a.Extractor.GetDataItems()
-	if err != nil {
-		log.Printf("ERR: failed to process bundles to data items: %s", err.Error())
-		return
-	}
-
-	for _, dataItem := range dataItems {
-		err = a.StoreDataItem(&dataItem, "placeholder")
-		if err != nil {
-			log.Printf("ERR: failed to store data item %s: %s", dataItem.Key(), err.Error())
-			return err
+		// for each data item in the bundle, process it
+		for _, item := range bundle.TelemetryDataItems {
+			if err := a.StoreTelemetryData(&item, &bundle.Header); err != nil {
+				log.Printf("ERR: failed to store telemetry data from bundle %q: %s", bKey, err.Error())
+				return err
+			}
 		}
 
-		a.Extractor.DeleteDataItem(&dataItem)
+		// bundle's data items have been extracted so delete the bundle
+		if err = a.Extractor.DeleteBundle(&bundle); err != nil {
+			log.Printf("ERR: failed to delete bundle %q: %s", bundle.Key(), err.Error())
+			return err
+		}
 	}
-
-	log.Printf("INF: successfully processed %d bundles into data items", numDataItems)
 
 	return
 }
 
-func (a *App) StoreDataItem(dataItem *telemetrylib.TelemetryDataItem, clientId string) (err error) {
+func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHeader *telemetrylib.TelemetryBundleHeader) (err error) {
 	// when adding a telemetry data item we also need to ensure that all of
 	// associated annontations (tags) exist in the tagElements table, then
 	// we can add entries to the tagList table to associate the tagElement
@@ -220,7 +194,8 @@ func (a *App) StoreDataItem(dataItem *telemetrylib.TelemetryDataItem, clientId s
 
 	// create a TelemetryDataRow
 	tdRow := TelemetryDataRow{
-		ClientId:      clientId,
+		ClientId:      bHeader.BundleClientId,
+		CustomerId:    bHeader.BundleCustomerId,
 		TelemetryId:   dataItem.Header.TelemetryId,
 		TelemetryType: dataItem.Header.TelemetryType,
 		Timestamp:     dataItem.Header.TelemetryTimeStamp,
@@ -229,61 +204,44 @@ func (a *App) StoreDataItem(dataItem *telemetrylib.TelemetryDataItem, clientId s
 	// marshal telemetry data as JSON
 	jsonData, err := json.Marshal(dataItem.TelemetryData)
 	if err != nil {
-		log.Printf("ERR: failed to marshal telemetry data for client id %q, telemetry id %q as JSON: %s", tdRow.ClientId, tdRow.TelemetryId, err.Error())
+		log.Printf("ERR: failed to marshal telemetry data for client id %q, customer id %q, telemetry id %q as JSON: %s", tdRow.ClientId, tdRow.CustomerId, tdRow.TelemetryId, err.Error())
 		return
 	}
 	tdRow.DataItem = jsonData
 
 	if !tdRow.Exists(a.DB.Conn) {
-		res, err := a.DB.Conn.Exec(
-			`INSERT INTO telemetryData(clientId, telemetryId, telemetryType, timestamp, dataItem) VALUES(?, ?, ?, ?, ?)`,
-			tdRow.ClientId, tdRow.TelemetryId, tdRow.TelemetryType, tdRow.Timestamp, tdRow.DataItem,
-		)
-		if err != nil {
-			log.Printf("failed to add telemetryData entry for clientId %q telemetryId %q: %s", tdRow.ClientId, tdRow.TelemetryId, err.Error())
+		if err := tdRow.Insert(a.DB.Conn); err != nil {
+			log.Printf("ERR: failed to add data item %q: %s", dataItem.Key(), err.Error())
 			return err
 		}
-		id, err := res.LastInsertId()
-		if err != nil {
-			log.Printf("ERR: failed to retrieve id for inserted telemetryData %q: %s", tdRow.TelemetryId, err.Error())
-			return err
-		}
-		tdRow.Id = id
+
+		log.Printf("INF: successfully added data item %q as telemetryData entry %d", dataItem.Key(), tdRow.Id)
 	}
 
 	// create an array of TagElementRows matching dataItem's annontations,
 	// adding any that are not already pressent to the tagElement table.
-	teRows := make([]TagElementRow, len(dataItem.Header.TelemetryAnnotations))
+	var teRows []TagElementRow
 	for _, tag := range dataItem.Header.TelemetryAnnotations {
 		teRow := TagElementRow{Tag: tag}
 		if !teRow.Exists(a.DB.Conn) {
-			res, err := a.DB.Conn.Exec(`INSERT INTO tagElement(tag) VALUES(?)`, teRow.Tag)
-			if err != nil {
-				log.Printf("ERR: failed to add tag %q to tagElements table: %s", teRow.Tag, err.Error())
+			if err := teRow.Insert(a.DB.Conn); err != nil {
+				log.Printf("ERR: failed to add tag %q for data item %q: %s", teRow.Tag, dataItem.Key(), err.Error())
 				return err
 			}
-			id, err := res.LastInsertId()
-			if err != nil {
-				log.Printf("ERR: failed to retrieve id for inserted tag %q: %s", teRow.Tag, err.Error())
-				return err
-			}
-			teRow.Id = id
+			log.Printf("INF: successfully added tag %q for telemetryData entry %d", teRow.Tag, tdRow.Id)
 		}
 		teRows = append(teRows, teRow)
 	}
 
 	// add tagList entries to relate tagElement entries to telemetryData entries
 	for _, teRow := range teRows {
-		tlRow := TagListRow{TelemetryId: tdRow.Id, TagId: teRow.Id}
+		tlRow := TagListRow{TelemetryDataId: tdRow.Id, TagId: teRow.Id}
 		if !tlRow.Exists(a.DB.Conn) {
-			_, err := a.DB.Conn.Exec(
-				`INSERT INTO tagList(telemetryId, tagId) VALUES(?, ?)`,
-				tlRow.TelemetryId, tlRow.TagId,
-			)
-			if err != nil {
-				log.Printf("ERR: failed to add tagList (%d, %d): %s", tlRow.TelemetryId, tlRow.TagId, err.Error())
+			if err := tlRow.Insert(a.DB.Conn); err != nil {
+				log.Printf("ERR: failed to add tagList (%d, %d) for data item %q: %s", tlRow.TelemetryDataId, tlRow.TagId, dataItem.Key(), err.Error())
 				return err
 			}
+			log.Printf("INF: successfully added tagList (%d, %d) for telemetryData entry %d", tlRow.TelemetryDataId, tlRow.TagId, tdRow.Id)
 		}
 	}
 
