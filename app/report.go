@@ -18,7 +18,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Printf("INF: %s %s reqBody: %q", ar.R.Method, ar.R.URL, reqBody)
+	log.Printf("INF: %s %s reqBody: %s", ar.R.Method, ar.R.URL, reqBody)
 
 	// unmarshal the request body to the request struct
 	var trReq restapi.TelemetryReportRequest
@@ -27,7 +27,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Printf("INF: %s %s trReq: %q", ar.R.Method, ar.R.URL, &trReq)
+	log.Printf("INF: %s %s trReq: %s", ar.R.Method, ar.R.URL, &trReq)
 
 	// store received telemetry report in reports datastore
 	a.Extractor.AddReport(&trReq.TelemetryReport)
@@ -37,7 +37,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 
 	// initialise a telemetry report response
 	trResp := restapi.NewTelemetryReportResponse(0, types.Now())
-	log.Printf("INF: %s %s trResp: %q", ar.R.Method, ar.R.URL, trResp)
+	log.Printf("INF: %s %s trResp: %s", ar.R.Method, ar.R.URL, trResp)
 
 	// respond success with the telemetry report response
 	ar.JsonResponse(http.StatusOK, trResp)

@@ -19,7 +19,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Printf("INF: %s %s reqBody: %q", ar.R.Method, ar.R.URL, reqBody)
+	log.Printf("INF: %s %s reqBody: %s", ar.R.Method, ar.R.URL, reqBody)
 
 	// unmarshal the request body to the request struct
 	var crReq restapi.ClientRegistrationRequest
@@ -32,7 +32,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, "no ClientInstanceId value provided")
 		return
 	}
-	log.Printf("INF: %s %s crReq: %q", ar.R.Method, ar.R.URL, &crReq)
+	log.Printf("INF: %s %s crReq: %s", ar.R.Method, ar.R.URL, &crReq)
 
 	// register the client
 	client := ClientsRow{ClientInstanceId: crReq.ClientInstanceId}
@@ -60,7 +60,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		AuthToken: client.AuthToken,
 		IssueDate: client.RegistrationDate,
 	}
-	log.Printf("INF: %s %s crResp: %q", ar.R.Method, ar.R.URL, &crResp)
+	log.Printf("INF: %s %s crResp: %s", ar.R.Method, ar.R.URL, &crResp)
 
 	// respond success with the client registration response
 	ar.JsonResponse(http.StatusOK, crResp)
