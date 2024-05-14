@@ -7,16 +7,20 @@ repos under the same directory:
 * github.com/SUSE/telemetry
 * github.com/SUSE/telemetry-server
 
-Then you can cd to the telemetry-server/server/gorrila directory and run
-the server as follows:
+In one terminal session you can cd to the telemetry-server/server/gorrila
+directory and run the server as follows:
+
 ```
 % cd telemetry-server/server/gorrila
-% go run .
+% rm -rf /tmp/telemetry /tmp/susetelemetry
+% mkdir -p /tmp/telemetry/{client,server} /tmp/susetelemetry 
+% go run . --config ../../testdata/config/localServer.yaml
 ```
 
-Then you can cd to the telemetry/cmd/generator directory and run it to
-generate a telemetry data item based upon the content of a specified file,
-which will add it to the configured telemetry item data store, as follows:
+Then in another terminal session you can cd to telemetry/cmd/generator
+directory and run the client tool to generate a telemetry data item
+based upon the content of a specified file, which will add it to the
+configured telemetry item data store, as follows:
 
 ```
 % cd telemetry/cmd/generator
