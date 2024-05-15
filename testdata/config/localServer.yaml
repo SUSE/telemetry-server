@@ -3,9 +3,9 @@ api:
   host: localhost
   port: 9999
 datastores:
-  items: db|sqlite3:/tmp/telemetry/server/itemstore.db
-  bundles: db|sqlite3:/tmp/telemetry/server/bundlestore.db
-  reports: db|sqlite3:/tmp/telemetry/server/reportstore.db
+  items: sqlite3:/tmp/telemetry/server/itemstore.db
+  bundles: sqlite3:/tmp/telemetry/server/bundlestore.db
+  reports: sqlite3:/tmp/telemetry/server/reportstore.db
 dbs:
   telemetry:
     driver: sqlite3
