@@ -29,11 +29,10 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 	log.Printf("INF: %s %s trReq: %s", ar.R.Method, ar.R.URL, &trReq)
 
-	// store received telemetry report in reports datastore
-	a.Extractor.AddReport(&trReq.TelemetryReport)
+	//Save the report into the staging db
+	a.StoreTelemetryReport(reqBody, trReq.TelemetryReport.Header.ReportId)
 
-	// trigger telemetry processing
-	a.ProcessTelemetry()
+	a.ProcessBundles(&trReq.TelemetryReport)
 
 	// initialise a telemetry report response
 	trResp := restapi.NewTelemetryReportResponse(0, types.Now())

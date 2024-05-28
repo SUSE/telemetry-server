@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -77,11 +78,11 @@ func (ar *AppRequest) JsonResponse(code int, payload any) {
 
 // App is a struct tracking the resources associated with the application
 type App struct {
-	Config    *Config
-	Extractor telemetrylib.TelemetryExtractor
-	DB        DbConnection
-	Address   ServerAddress
-	Handler   http.Handler
+	Config      *Config
+	TelemetryDB DbConnection
+	StagingDB   DbConnection
+	Address     ServerAddress
+	Handler     http.Handler
 }
 
 func NewApp(cfg *Config, handler http.Handler) *App {
@@ -89,7 +90,8 @@ func NewApp(cfg *Config, handler http.Handler) *App {
 
 	a.Config = cfg
 
-	a.DB.Setup(cfg.DataBases.Telemetry)
+	a.TelemetryDB.Setup(cfg.DataBases.Telemetry)
+	a.StagingDB.Setup(cfg.DataBases.Staging)
 	a.Address.Setup(cfg.API)
 	a.Handler = handler
 
@@ -101,16 +103,20 @@ func (a *App) ListenOn() string {
 }
 
 func (a *App) Initialize() {
-	extractor, err := telemetrylib.NewTelemetryExtractor(&a.Config.DataStores)
-	if err != nil {
-		log.Fatalf("failed to initialize telemetry extractor: %s", err.Error())
-	}
-	a.Extractor = extractor
-	if err := a.DB.Connect(); err != nil {
+
+	if err := a.TelemetryDB.Connect(); err != nil {
 		log.Fatalf("failed to initialize DB connection: %s", err.Error())
 	}
 
-	if err := a.DB.EnsureTablesExist(); err != nil {
+	if err := a.TelemetryDB.EnsureTablesExist(dbTables); err != nil {
+		log.Fatalf("failed to ensure required tables exist: %s", err.Error())
+	}
+
+	if err := a.StagingDB.Connect(); err != nil {
+		log.Fatalf("failed to initialize Staging DB connection: %s", err.Error())
+	}
+
+	if err := a.StagingDB.EnsureTablesExist(dbTablesStaging); err != nil {
 		log.Fatalf("failed to ensure required tables exist: %s", err.Error())
 	}
 }
@@ -120,52 +126,12 @@ func (a *App) Run() {
 	log.Fatal(http.ListenAndServe(a.ListenOn(), a.Handler))
 }
 
-func (a *App) ProcessTelemetry() (err error) {
-	err = a.ProcessReports()
-	if err != nil {
-		log.Printf("ERR: processing reports failed: %s", err.Error())
-	}
-
-	err = a.ProcessBundles()
-	if err != nil {
-		log.Printf("ERR: processing bundles failed: %s", err.Error())
-	}
-
-	return
-}
-
-func (a *App) ProcessReports() (err error) {
-
-	numReports, err := a.Extractor.ReportCount()
-	if err != nil {
-		log.Printf("ERR: failed to determine number of staged reports: %s", err.Error())
-		return
-	}
-
-	log.Printf("INF: attempting to process %d reports into bundles", numReports)
-
-	err = a.Extractor.ReportsToBundles()
-	if err != nil {
-		log.Printf("ERR: failed to process reports to bundles: %s", err.Error())
-		return
-	}
-
-	log.Printf("INF: successfully processed %d reports into bundles", numReports)
-
-	return
-}
-
-func (a *App) ProcessBundles() (err error) {
-	bundles, err := a.Extractor.GetBundles()
-	if err != nil {
-		log.Printf("ERR: failed to retrieve bundles: %s", err.Error())
-		return
-	}
+func (a *App) ProcessBundles(report *telemetrylib.TelemetryReport) (err error) {
 
 	// process available bundles, extracting the data items and
 	// storing them in the telemetry DB
-	for _, bundle := range bundles {
-		bKey := bundle.Key()
+	for _, bundle := range report.TelemetryBundles {
+		bKey := bundle.Header.BundleId
 		log.Printf("INF: processing bundle %q", bKey)
 
 		// for each data item in the bundle, process it
@@ -175,13 +141,9 @@ func (a *App) ProcessBundles() (err error) {
 				return err
 			}
 		}
-
-		// bundle's data items have been extracted so delete the bundle
-		if err = a.Extractor.DeleteBundle(&bundle); err != nil {
-			log.Printf("ERR: failed to delete bundle %q: %s", bundle.Key(), err.Error())
-			return err
-		}
 	}
+
+	a.DeleteTelemetryReport(report)
 
 	return
 }
@@ -209,13 +171,13 @@ func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHead
 	}
 	tdRow.DataItem = jsonData
 
-	if !tdRow.Exists(a.DB.Conn) {
-		if err := tdRow.Insert(a.DB.Conn); err != nil {
-			log.Printf("ERR: failed to add data item %q: %s", dataItem.Key(), err.Error())
+	if !tdRow.Exists(a.TelemetryDB.Conn) {
+		if err := tdRow.Insert(a.TelemetryDB.Conn); err != nil {
+			log.Printf("ERR: failed to add data item %q: %s", dataItem.Header.TelemetryId, err.Error())
 			return err
 		}
 
-		log.Printf("INF: successfully added data item %q as telemetryData entry %d", dataItem.Key(), tdRow.Id)
+		log.Printf("INF: successfully added data item %q as telemetryData entry %d", dataItem.Header.TelemetryId, tdRow.Id)
 	}
 
 	// create an array of TagElementRows matching dataItem's annontations,
@@ -223,9 +185,9 @@ func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHead
 	var teRows []TagElementRow
 	for _, tag := range dataItem.Header.TelemetryAnnotations {
 		teRow := TagElementRow{Tag: tag}
-		if !teRow.Exists(a.DB.Conn) {
-			if err := teRow.Insert(a.DB.Conn); err != nil {
-				log.Printf("ERR: failed to add tag %q for data item %q: %s", teRow.Tag, dataItem.Key(), err.Error())
+		if !teRow.Exists(a.TelemetryDB.Conn) {
+			if err := teRow.Insert(a.TelemetryDB.Conn); err != nil {
+				log.Printf("ERR: failed to add tag %q for data item %q: %s", teRow.Tag, dataItem.Header.TelemetryId, err.Error())
 				return err
 			}
 			log.Printf("INF: successfully added tag %q for telemetryData entry %d", teRow.Tag, tdRow.Id)
@@ -236,14 +198,47 @@ func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHead
 	// add tagList entries to relate tagElement entries to telemetryData entries
 	for _, teRow := range teRows {
 		tlRow := TagListRow{TelemetryDataId: tdRow.Id, TagId: teRow.Id}
-		if !tlRow.Exists(a.DB.Conn) {
-			if err := tlRow.Insert(a.DB.Conn); err != nil {
-				log.Printf("ERR: failed to add tagList (%d, %d) for data item %q: %s", tlRow.TelemetryDataId, tlRow.TagId, dataItem.Key(), err.Error())
+		if !tlRow.Exists(a.TelemetryDB.Conn) {
+			if err := tlRow.Insert(a.TelemetryDB.Conn); err != nil {
+				log.Printf("ERR: failed to add tagList (%d, %d) for data item %q: %s", tlRow.TelemetryDataId, tlRow.TagId, dataItem.Header.TelemetryId, err.Error())
 				return err
 			}
 			log.Printf("INF: successfully added tagList (%d, %d) for telemetryData entry %d", tlRow.TelemetryDataId, tlRow.TagId, tdRow.Id)
 		}
 	}
 
+	return
+}
+
+func (a *App) StoreTelemetryReport(reqBody []byte, key string) (err error) {
+	//Stores the report body into the staging database in the reports table
+	receivedTimestamp := time.Now()
+
+	// create a ReportStagingTableRow struct
+	reportStagingRow := ReportStagingTableRow{
+		Key:               key,
+		Data:              reqBody,
+		Processed:         false,
+		ReceivedTimestamp: receivedTimestamp.String(),
+	}
+
+	if err := reportStagingRow.Insert(a.StagingDB.Conn); err != nil {
+		log.Printf("ERR: failed to insert report with ReportId %q: %s", key, err.Error())
+		return err
+	}
+
+	return
+}
+
+func (a *App) DeleteTelemetryReport(report *telemetrylib.TelemetryReport) (err error) {
+
+	reportStagingRow := ReportStagingTableRow{
+		Key: report.Header.ReportId,
+	}
+
+	if err := reportStagingRow.Delete(a.StagingDB.Conn); err != nil {
+		log.Printf("ERR: failed to delete report with ReportId %q: %s", report.Header.ReportId, err.Error())
+		return err
+	}
 	return
 }

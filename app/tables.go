@@ -189,3 +189,56 @@ var dbTables = map[string]string{
 	"tagLists":      tagListsTableColumns,
 	"telemetryData": telemetryDataTableColumns,
 }
+
+const reportsTableColumns = `(
+	id INTEGER NOT NULL PRIMARY KEY,
+	key VARCHAR(64) NOT NULL,
+	data BLOB NOT NULL,
+	processed BOOLEAN DEFAULT false,
+	receivedTimestamp VARCHAR(32) NOT NULL
+)`
+
+var dbTablesStaging = map[string]string{
+	"reports": reportsTableColumns,
+}
+
+type ReportStagingTableRow struct {
+	Key               string
+	Data              interface{}
+	Processed         bool
+	ReceivedTimestamp string
+}
+
+func (r *ReportStagingTableRow) Exists(DB *sql.DB) bool {
+	row := DB.QueryRow(`SELECT key FROM reports WHERE key = ?`, r.Key)
+	if err := row.Scan(&r.Key); err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("ERR: failed when checking for existence of report id %q: %s", r.Key, err.Error())
+		}
+		return false
+	}
+	return true
+}
+
+func (r *ReportStagingTableRow) Insert(DB *sql.DB) (err error) {
+	_, err = DB.Exec(
+		`INSERT INTO reports(key, data, processed, receivedTimestamp) VALUES(?, ?, ?, ?)`,
+		r.Key, r.Data, false, r.ReceivedTimestamp,
+	)
+	if err != nil {
+		log.Printf("failed to insert Report entry with ReportId %q: %s", r.Key, err.Error())
+		return err
+	}
+
+	return
+}
+
+func (r *ReportStagingTableRow) Delete(DB *sql.DB) (err error) {
+	_, err = DB.Exec("DELETE FROM reports WHERE key = ?", r.Key)
+	if err != nil {
+		log.Printf("failed to delete Report entry with ReportId %q: %s", r.Key, err.Error())
+		return err
+	}
+
+	return
+}

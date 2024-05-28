@@ -5,19 +5,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/SUSE/telemetry/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
 // Default server config path
 const DEFAULT_CONFIG string = "/etc/susetelemetry/server.cfg"
-
-// Datastore config for staging the data
-//type DataStoresConfig struct {
-//	ItemDS   string `yaml:"items"`
-//	BundleDS string `yaml:"bundles"`
-//	ReportDS string `yaml:"reports"`
-//}
 
 // API server config
 type APIConfig struct {
@@ -41,16 +33,16 @@ type DBConfig struct {
 }
 
 func (d *DBConfig) Valid() error {
-
 	return nil
 }
 
 type Config struct {
-	cfgPath    string
-	API        APIConfig               `yaml:"api"`
-	DataStores config.DataStoresConfig `yaml:"datastores"`
-	DataBases  struct {
+	cfgPath string
+	API     APIConfig `yaml:"api"`
+	//DataStores config.DBConfig `yaml:"datastores"`
+	DataBases struct {
 		Telemetry DBConfig `yaml:"telemetry"`
+		Staging   DBConfig `yaml:"staging"`
 		//add other databases here
 	} `yaml:"dbs"`
 }

@@ -10,13 +10,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const (
-	DB_DRIVER = "sqlite3"
-	DB_URI    = "../../../server.db"
-	HOST      = "localhost"
-	PORT      = 9999
-)
-
 type routerWrapper struct {
 	router *mux.Router
 	app    *app.App

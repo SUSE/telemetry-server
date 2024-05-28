@@ -32,8 +32,8 @@ func (d *DbConnection) Connect() (err error) {
 	return
 }
 
-func (d *DbConnection) EnsureTablesExist() (err error) {
-	for name, columns := range dbTables {
+func (d *DbConnection) EnsureTablesExist(tables map[string]string) (err error) {
+	for name, columns := range tables {
 		createCmd := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s %s", name, columns)
 		log.Printf("createCmd:\n%s", createCmd)
 		_, err = d.Conn.Exec(createCmd)

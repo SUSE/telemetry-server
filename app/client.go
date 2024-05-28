@@ -36,14 +36,14 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	// register the client
 	client := ClientsRow{ClientInstanceId: crReq.ClientInstanceId}
-	if client.Exists(a.DB.Conn) {
+	if client.Exists(a.TelemetryDB.Conn) {
 		ar.ErrorResponse(http.StatusConflict, "specified clientInstanceId already exists")
 		return
 	}
 
 	client.RegistrationDate = types.Now().String()
 	client.AuthToken = "sometoken"
-	res, err := a.DB.Conn.Exec(`INSERT INTO clients(clientInstanceId, RegistrationDate, AuthToken) VALUES(?,?,?)`, client.ClientInstanceId, client.RegistrationDate, client.AuthToken)
+	res, err := a.TelemetryDB.Conn.Exec(`INSERT INTO clients(clientInstanceId, RegistrationDate, AuthToken) VALUES(?,?,?)`, client.ClientInstanceId, client.RegistrationDate, client.AuthToken)
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to insert clients row")
 		return
