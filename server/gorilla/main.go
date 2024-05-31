@@ -43,9 +43,10 @@ func (o options) String() string {
 var opts options
 
 func main() {
-	log.Printf("Preparing to start gorilla/mux based server with options: %s", opts)
 
-	router := mux.NewRouter()
+	parseCommandLineFlags()
+
+	log.Printf("Preparing to start gorilla/mux based server with options: %s", opts)
 
 	cfg := app.NewConfig(opts.config)
 	if err := cfg.Load(); err != nil {
@@ -54,18 +55,32 @@ func main() {
 
 	log.Printf("Config: %v", cfg)
 
-	a := app.NewApp(cfg, router)
+	a, _ := InitializeApp(cfg)
 
-	wrapper := newRouterWrapper(router, a)
+	a.Run()
+}
+
+func parseCommandLineFlags() {
+	flag.StringVar(&opts.config, "config", app.DEFAULT_CONFIG, "Path to config file to use")
+	flag.Parse()
+}
+
+func SetupRouterWrapper(router *mux.Router, app *app.App) {
+	wrapper := newRouterWrapper(router, app)
 
 	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
 	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
 
-	a.Initialize()
-	a.Run()
 }
 
-func init() {
-	flag.StringVar(&opts.config, "config", app.DEFAULT_CONFIG, "Path to config file to use")
-	flag.Parse()
+func InitializeApp(cfg *app.Config) (a *app.App, router *mux.Router) {
+	router = mux.NewRouter()
+
+	a = app.NewApp(cfg, router)
+
+	SetupRouterWrapper(router, a)
+
+	a.Initialize()
+
+	return
 }
