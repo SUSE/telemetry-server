@@ -8,6 +8,7 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/go-playground/validator/v10"
 )
 
 func (a *App) ReportTelemetry(ar *AppRequest) {
@@ -27,6 +28,14 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	err = validate.Struct(&trReq)
+	if err != nil {
+		ar.ErrorResponse(http.StatusBadRequest, err.Error())
+		return
+	}
+
 	log.Printf("INF: %s %s trReq: %s", ar.R.Method, ar.R.URL, &trReq)
 
 	//Save the report into the staging db

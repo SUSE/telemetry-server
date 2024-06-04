@@ -141,9 +141,6 @@ func (t *AppTestSuite) TestRegisterClientWithInvalidJSON() {
 
 func (t *AppTestSuite) TestReportTelemetryWithEmptyPayload() {
 	//Test the wrapper.reportTelemetry handler
-
-	t.T().Skip("Skipping this test for now")
-
 	// Create a POST request with the necessary body
 	body := `{}`
 	rr, err := postToReportTelemetryHandler(body, t)
@@ -151,6 +148,58 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyPayload() {
 
 	assert.Equal(t.T(), 400, rr.Code)
 
+}
+
+func (t *AppTestSuite) TestReportTelemetryWithEmptyValues() {
+	tests := []struct {
+		name       string
+		body       string
+		shouldFail bool
+	}{
+
+		{"Validation with header.reportId empty value", `{"header":{"reportId":"","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, true},
+
+		{"Validation with header.reportAnnotations empty list", `{"header":{"reportId":"fasdklfsdlfksdkflsdf2","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":[]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a2","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7902","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b772","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+
+		{"Validation with no header.reportAnnotations attribute", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf3","reportTimeStamp":"%s","reportClientId":12345},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a3","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7903","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b773","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+
+		{"Validation with no telemetryBundles attribute", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf4","reportTimeStamp":"%s","reportClientId":12345},"footer":{"checksum":"rchecksum"}}`, true},
+
+		{"Validation with empty telemetryBundles list", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf5","reportTimeStamp":"%s","reportClientId":12345},"telemetryBundles":[],"footer":{"checksum":"rchecksum"}}`, true},
+
+		{"Validation with bundleId empty value", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, true},
+
+		{"Validation with bundleAnnotations empty list", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2b1","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":[]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+
+		{"Validation with empty telemetryAnnotations", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsde8","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+
+		{"Validation with no telemetryAnnotations attribute", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsde9","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":12345,"buncleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+	}
+
+	for _, tt := range tests {
+		t.Run("Report Telemetry "+tt.name, func() {
+			tm := types.Now().String()
+			formattedBody := fmt.Sprintf(tt.body, tm, tm, tm, tm)
+
+			//Test the wrapper.reportTelemetry handler
+			// Create a POST request with the necessary body
+
+			rr, err := postToReportTelemetryHandler(formattedBody, t)
+			assert.NoError(t.T(), err)
+
+			if tt.shouldFail {
+				assert.Equal(t.T(), http.StatusBadRequest, rr.Code)
+			} else {
+				assert.Equal(t.T(), http.StatusOK, rr.Code)
+			}
+
+		})
+	}
 }
 
 func (t *AppTestSuite) TestRegisterClientWithEmptyJSON() {
@@ -228,6 +277,7 @@ func createReportPayload(t *testing.T) (reportPayload string) {
 	report1.TelemetryBundles = append(report1.TelemetryBundles, *bundle1)
 
 	jsonData, _ := json.Marshal(report1)
+
 	reportPayload = string(jsonData)
 
 	return
