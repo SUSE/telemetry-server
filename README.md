@@ -1,8 +1,8 @@
 # telemetry-server
-Proof of Concept Telemetry Server scaffolding
+This is the basic implementation of the SUSE Telemetry Gateway service.
 
-To use this code you will need to checkout the 2 telemetry POC related
-repos under the same directory:
+To use this code you will need to checkout both telemetry repositories
+under the same directory:
 
 * github.com/SUSE/telemetry
 * github.com/SUSE/telemetry-server
@@ -28,4 +28,15 @@ configured telemetry item data store, as follows:
     --config ../../testdata/config/localClient.yaml \
     --tag abc=pqr --tag xyz \
     --telemetry=SLE-SERVER-Test ../../examples/telemetry/SLE-SERVER-Test.json
+```
+
+# testing
+
+Ensure that you have checked out both telemetry repositories under the
+same directory and then cd into the telemetry-server repo and run the
+as follows:
+
+```
+% cd telemetry-server
+% make test
 ```
