@@ -38,10 +38,11 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 
 	log.Printf("INF: %s %s trReq: %s", ar.R.Method, ar.R.URL, &trReq)
 
-	//Save the report into the staging db
-	a.StoreTelemetryReport(reqBody, trReq.TelemetryReport.Header.ReportId)
+	// save the report into the staging db
+	a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)
 
-	a.ProcessBundles(&trReq.TelemetryReport)
+	// process pending reports
+	a.ProcessStagedReports()
 
 	// initialise a telemetry report response
 	trResp := restapi.NewTelemetryReportResponse(0, types.Now())
