@@ -43,14 +43,9 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	client.RegistrationDate = types.Now().String()
 	client.AuthToken = "sometoken"
-	res, err := a.TelemetryDB.Conn.Exec(`INSERT INTO clients(clientInstanceId, RegistrationDate, AuthToken) VALUES(?,?,?)`, client.ClientInstanceId, client.RegistrationDate, client.AuthToken)
+	err = client.Insert(a.TelemetryDB.Conn)
 	if err != nil {
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to insert clients row")
-		return
-	}
-	client.Id, err = res.LastInsertId()
-	if err != nil {
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to retrieve client id for inserted clients row")
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to register new client")
 		return
 	}
 

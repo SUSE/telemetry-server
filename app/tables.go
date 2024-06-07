@@ -17,7 +17,7 @@ type ClientsRow struct {
 	Id               int64  `json:"id"`
 	ClientInstanceId string `json:"clientInstanceId"`
 	RegistrationDate string `json:"registrationDate"`
-	AuthToken        string `json:"AuthToken"`
+	AuthToken        string `json:"authToken"`
 }
 
 func (c *ClientsRow) String() string {
@@ -36,87 +36,66 @@ func (c *ClientsRow) Exists(DB *sql.DB) bool {
 	return true
 }
 
-const tagElementsTableColumns = `(
-	id INTEGER NOT NULL PRIMARY KEY,
-	tag VARCHAR(256) NOT NULL
-)`
-
-type TagElementRow struct {
-	Id  int64  `json:"id"`
-	Tag string `json:"tag"`
-}
-
-func (t *TagElementRow) String() string {
-	bytes, _ := json.Marshal(t)
-	return string(bytes)
-}
-
-func (t *TagElementRow) Exists(DB *sql.DB) bool {
-	row := DB.QueryRow(`SELECT id FROM tagElements WHERE tag = ?`, t.Tag)
-	if err := row.Scan(&t.Id); err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of tag %q: %s", t.Tag, err.Error())
-		}
-		return false
-	}
-	return true
-}
-
-func (t *TagElementRow) Insert(DB *sql.DB) (err error) {
-	res, err := DB.Exec(`INSERT INTO tagElements(tag) VALUES(?)`, t.Tag)
+func (c *ClientsRow) Insert(DB *sql.DB) (err error) {
+	res, err := DB.Exec(
+		`INSERT INTO clients(clientInstanceId, registrationDate, authToken) VALUES(?, ?, ?)`,
+		c.ClientInstanceId, c.RegistrationDate, c.AuthToken,
+	)
 	if err != nil {
-		log.Printf("ERR: failed to add tag %q to tagElements table: %s", t.Tag, err.Error())
+		log.Printf("ERR: failed to add client %q: %s", c.ClientInstanceId, err.Error())
 		return err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted tag %q: %s", t.Tag, err.Error())
+		log.Printf("ERR: failed to retrieve id for inserted client %q: %s", c.ClientInstanceId, err.Error())
 		return err
 	}
-	t.Id = id
+	c.Id = id
 
 	return
 }
 
-const tagListsTableColumns = `(
-	telemetryDataId INTEGER NOT NULL,
-	tagId INTEGER NOT NULL,
-	FOREIGN KEY (telemetryDataId) REFERENCES telemetryData (id)
-	FOREIGN KEY (tagId) REFERENCES tagElements (id)
-	PRIMARY KEY (telemetryDataId, tagId)
+const tagSetsTableColumns = `(
+	id INTEGER NOT NULL PRIMARY KEY,
+	tagSet VARCHAR NOT NULL UNIQUE
 )`
 
-type TagListRow struct {
-	TelemetryDataId int64 `json:"telemetryDataId"`
-	TagId           int64 `json:"tagId"`
+type TagSetRow struct {
+	Id     int64  `json:"id"`
+	TagSet string `json:"tagSet"`
 }
 
-func (t *TagListRow) String() string {
+func (t *TagSetRow) String() string {
 	bytes, _ := json.Marshal(t)
 	return string(bytes)
 }
 
-func (t *TagListRow) Exists(DB *sql.DB) bool {
-	row := DB.QueryRow(`SELECT telemetryDataId FROM tagLists WHERE telemetryDataId = ? AND tagId = ?`, t.TelemetryDataId, t.TagId)
-	var tid int64
-	if err := row.Scan(&tid); err != nil {
+func (t *TagSetRow) Exists(DB *sql.DB) bool {
+	row := DB.QueryRow(`SELECT id FROM tagSets WHERE tagSet = ?`, t.TagSet)
+	if err := row.Scan(&t.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of telemetryDataId %q tag %q: %s", t.TelemetryDataId, t.TagId, err.Error())
+			log.Printf("ERR: failed when checking for existence of tagSet %q: %s", t.TagSet, err.Error())
 		}
 		return false
 	}
 	return true
 }
 
-func (t *TagListRow) Insert(DB *sql.DB) (err error) {
-	_, err = DB.Exec(
-		`INSERT INTO tagLists(telemetryDataId, tagId) VALUES(?, ?)`,
-		t.TelemetryDataId, t.TagId,
+func (t *TagSetRow) Insert(DB *sql.DB) (err error) {
+	res, err := DB.Exec(
+		`INSERT INTO tagSets(tagSet) VALUES(?)`,
+		t.TagSet,
 	)
 	if err != nil {
-		log.Printf("ERR: failed to add tagList (%d, %d): %s", t.TelemetryDataId, t.TagId, err.Error())
+		log.Printf("ERR: failed to add tagSet %q: %s", t.TagSet, err.Error())
 		return err
 	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		log.Printf("ERR: failed to retrieve id for inserted tagSet %q: %s", t.TagSet, err.Error())
+		return err
+	}
+	t.Id = id
 
 	return
 }
@@ -131,9 +110,11 @@ const telemetryDataTableColumns = `(
 	customerId INTEGER NOT NULL,
 	telemetryId VARCHAR(64) NOT NULL,
 	telemetryType VARCHAR(64) NOT NULL,
+	tagSetId INTEGER NULL,
 	timestamp VARCHAR(32) NOT NULL,
 	staged BOOLEAN DEFAULT false,
-	dataItem BLOB NOT NULL
+	dataItem BLOB NOT NULL,
+	FOREIGN KEY (tagSetId) REFERENCES tagSets (id)
 )`
 
 type TelemetryDataRow struct {
@@ -143,6 +124,7 @@ type TelemetryDataRow struct {
 	TelemetryId   string      `json:"telemetryId"`
 	TelemetryType string      `json:"telemetryType"`
 	Timestamp     string      `json:"timestamp"`
+	TagSetId      int64       `json:"tagSetId"`
 	Staged        bool        `json:"staged"`
 	DataItem      interface{} `json:"dataItem"`
 }
@@ -185,8 +167,7 @@ func (t *TelemetryDataRow) Insert(DB *sql.DB) (err error) {
 // list of predefined tables
 var dbTables = map[string]string{
 	"clients":       clientsTableColumns,
-	"tagElements":   tagElementsTableColumns,
-	"tagLists":      tagListsTableColumns,
+	"tagSets":       tagSetsTableColumns,
 	"telemetryData": telemetryDataTableColumns,
 }
 

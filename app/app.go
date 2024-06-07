@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -148,7 +150,56 @@ func (a *App) ProcessBundles(report *telemetrylib.TelemetryReport) (err error) {
 	return
 }
 
+const tagSetSep = "|"
+
+func uniqueSortTags(tags []string) []string {
+	// only need to sort if 2 or more tags present
+	if len(tags) < 2 {
+		return tags
+	}
+
+	// create a map where existing key entries are set to true and new keys are appended to deDuped
+	tagMap := map[string]bool{}
+	uniqueTags := []string{}
+
+	for _, tag := range tags {
+		if tagMap[tag] {
+			continue
+		}
+		tagMap[tag] = true
+		uniqueTags = append(uniqueTags, tag)
+	}
+
+	// sort unique tag list
+	slices.Sort(uniqueTags)
+
+	return uniqueTags
+}
+
+func createTagSet(tags []string) string {
+	// append the bundle tags to the data item tags
+	uniqueTags := uniqueSortTags(tags)
+	return fmt.Sprintf("%s%s%s", tagSetSep, strings.Join(uniqueTags, tagSetSep), tagSetSep)
+}
+
 func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHeader *telemetrylib.TelemetryBundleHeader) (err error) {
+	// generate a tagSet from the bundle and data item tags
+	tagSet := createTagSet(append(dataItem.Header.TelemetryAnnotations, bHeader.BundleAnnotations...))
+
+	tsRow := TagSetRow{
+		TagSet: tagSet,
+	}
+
+	// add the tagSet to the tagSets table, if not already present
+	if !tsRow.Exists(a.TelemetryDB.Conn) {
+		if err := tsRow.Insert(a.TelemetryDB.Conn); err != nil {
+			log.Printf("ERR: failed to add tagSet %q: %s", tsRow.TagSet, err.Error())
+			return err
+		}
+
+		log.Printf("INF: successfully added tagSet %q as telemetryData entry %d", tsRow.TagSet, tsRow.Id)
+	}
+
 	// when adding a telemetry data item we also need to ensure that all of
 	// associated annontations (tags) exist in the tagElements table, then
 	// we can add entries to the tagList table to associate the tagElement
@@ -161,6 +212,7 @@ func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHead
 		TelemetryId:   dataItem.Header.TelemetryId,
 		TelemetryType: dataItem.Header.TelemetryType,
 		Timestamp:     dataItem.Header.TelemetryTimeStamp,
+		TagSetId:      tsRow.Id,
 	}
 
 	// marshal telemetry data as JSON
@@ -178,33 +230,6 @@ func (a *App) StoreTelemetryData(dataItem *telemetrylib.TelemetryDataItem, bHead
 		}
 
 		log.Printf("INF: successfully added data item %q as telemetryData entry %d", dataItem.Header.TelemetryId, tdRow.Id)
-	}
-
-	// create an array of TagElementRows matching dataItem's annontations,
-	// adding any that are not already pressent to the tagElement table.
-	var teRows []TagElementRow
-	for _, tag := range dataItem.Header.TelemetryAnnotations {
-		teRow := TagElementRow{Tag: tag}
-		if !teRow.Exists(a.TelemetryDB.Conn) {
-			if err := teRow.Insert(a.TelemetryDB.Conn); err != nil {
-				log.Printf("ERR: failed to add tag %q for data item %q: %s", teRow.Tag, dataItem.Header.TelemetryId, err.Error())
-				return err
-			}
-			log.Printf("INF: successfully added tag %q for telemetryData entry %d", teRow.Tag, tdRow.Id)
-		}
-		teRows = append(teRows, teRow)
-	}
-
-	// add tagList entries to relate tagElement entries to telemetryData entries
-	for _, teRow := range teRows {
-		tlRow := TagListRow{TelemetryDataId: tdRow.Id, TagId: teRow.Id}
-		if !tlRow.Exists(a.TelemetryDB.Conn) {
-			if err := tlRow.Insert(a.TelemetryDB.Conn); err != nil {
-				log.Printf("ERR: failed to add tagList (%d, %d) for data item %q: %s", tlRow.TelemetryDataId, tlRow.TagId, dataItem.Header.TelemetryId, err.Error())
-				return err
-			}
-			log.Printf("INF: successfully added tagList (%d, %d) for telemetryData entry %d", tlRow.TelemetryDataId, tlRow.TagId, tdRow.Id)
-		}
 	}
 
 	return
