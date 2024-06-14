@@ -1,8 +1,8 @@
-module github.com/SUSE/telmetry-server/app
+module github.com/SUSE/telemetry-server/app
 
 go 1.21
 
-replace github.com/SUSE/telmetry-server => ../../telemetry-server/
+replace github.com/SUSE/telemetry-server => ../../telemetry-server/
 
 require github.com/mattn/go-sqlite3 v1.14.22
 
