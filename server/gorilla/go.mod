@@ -2,12 +2,11 @@ module github.com/SUSE/telemetry-server/server/gorilla
 
 go 1.21
 
-replace github.com/SUSE/telemetry => ../../../telemetry/
-
 replace github.com/SUSE/telemetry-server => ../../../telemetry-server/
 
+replace github.com/SUSE/telemetry-server/app => ../../../telemetry-server/app
+
 require (
-	github.com/SUSE/telemetry-server/app v0.0.0-00010101000000-000000000000
 	github.com/go-playground/validator/v10 v10.21.0 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
@@ -15,8 +14,6 @@ require (
 	github.com/xyproto/randomstring v1.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-require github.com/SUSE/telemetry v0.0.0-00010101000000-000000000000
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
@@ -30,9 +27,12 @@ require (
 )
 
 require (
+	github.com/SUSE/telemetry v0.0.0-20240613193912-dad2f1cdf2a9
+	github.com/SUSE/telemetry-server/app v0.0.0-20240614144800-49f3f4355810
+)
+
+require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 )
-
-replace github.com/SUSE/telemetry-server/app => ../../../telemetry-server/app/
