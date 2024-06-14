@@ -46,14 +46,14 @@ func main() {
 
 	parseCommandLineFlags()
 
-	log.Printf("Preparing to start gorilla/mux based server with options: %s", opts)
+	log.Printf("INF: Preparing to start gorilla/mux based server with options: %s", opts)
 
 	cfg := app.NewConfig(opts.config)
 	if err := cfg.Load(); err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("Config: %v", cfg)
+	log.Printf("INF: Config: %v", cfg)
 
 	a, _ := InitializeApp(cfg)
 

@@ -107,24 +107,24 @@ func (a *App) ListenOn() string {
 func (a *App) Initialize() {
 
 	if err := a.TelemetryDB.Connect(); err != nil {
-		log.Fatalf("failed to initialize DB connection: %s", err.Error())
+		log.Fatalf("ERR: failed to initialize DB connection: %s", err.Error())
 	}
 
 	if err := a.TelemetryDB.EnsureTablesExist(dbTables); err != nil {
-		log.Fatalf("failed to ensure required tables exist: %s", err.Error())
+		log.Fatalf("ERR: failed to ensure required tables exist: %s", err.Error())
 	}
 
 	if err := a.StagingDB.Connect(); err != nil {
-		log.Fatalf("failed to initialize Staging DB connection: %s", err.Error())
+		log.Fatalf("ERR: failed to initialize Staging DB connection: %s", err.Error())
 	}
 
 	if err := a.StagingDB.EnsureTablesExist(dbTablesStaging); err != nil {
-		log.Fatalf("failed to ensure required tables exist: %s", err.Error())
+		log.Fatalf("ERR: failed to ensure required tables exist: %s", err.Error())
 	}
 }
 
 func (a *App) Run() {
-	log.Printf("Starting Telemetry Server App on %s", a.ListenOn())
+	log.Printf("INF: Starting Telemetry Server App on %s", a.ListenOn())
 	log.Fatal(http.ListenAndServe(a.ListenOn(), a.Handler))
 }
 

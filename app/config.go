@@ -58,7 +58,7 @@ func (cfg *Config) Path() string {
 }
 
 func (cfg *Config) Load() error {
-	log.Printf("cfgPath: %q", cfg.cfgPath)
+	log.Printf("DBG: cfgPath: %q", cfg.cfgPath)
 	_, err := os.Stat(cfg.cfgPath)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("config file '%s' doesn't exist: %s", cfg.cfgPath, err)
@@ -69,7 +69,7 @@ func (cfg *Config) Load() error {
 		return fmt.Errorf("failed to read contents of config file '%s': %s", cfg.cfgPath, err)
 	}
 
-	log.Printf("Contents: %q", contents)
+	log.Printf("DBG: Contents: %q", contents)
 	err = yaml.Unmarshal(contents, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to parse contents of config file '%s': %s", cfg.cfgPath, err)

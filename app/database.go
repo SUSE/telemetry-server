@@ -26,7 +26,7 @@ func (d *DbConnection) Setup(dbcfg DBConfig) {
 func (d *DbConnection) Connect() (err error) {
 	d.Conn, err = sql.Open(d.Driver, d.DataSource)
 	if err != nil {
-		log.Printf("Failed to connect to DB '%s:%s': %s", d.Driver, d.DataSource, err.Error())
+		log.Printf("ERR: failed to connect to DB '%s:%s': %s", d.Driver, d.DataSource, err.Error())
 	}
 
 	return
@@ -35,10 +35,10 @@ func (d *DbConnection) Connect() (err error) {
 func (d *DbConnection) EnsureTablesExist(tables map[string]string) (err error) {
 	for name, columns := range tables {
 		createCmd := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s %s", name, columns)
-		log.Printf("createCmd:\n%s", createCmd)
+		log.Printf("DBG: createCmd:\n%s", createCmd)
 		_, err = d.Conn.Exec(createCmd)
 		if err != nil {
-			log.Printf("failed to create table %q: %s", name, err.Error())
+			log.Printf("ERR: failed to create table %q: %s", name, err.Error())
 			return
 		}
 	}

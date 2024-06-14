@@ -151,7 +151,7 @@ func (t *TelemetryDataRow) Insert(DB *sql.DB) (err error) {
 		t.ClientId, t.CustomerId, t.TelemetryId, t.TelemetryType, t.Timestamp, t.DataItem,
 	)
 	if err != nil {
-		log.Printf("failed to add telemetryData entry for customerId %q telemetryId %q: %s", t.CustomerId, t.TelemetryId, err.Error())
+		log.Printf("ERR: failed to add telemetryData entry for customerId %q telemetryId %q: %s", t.CustomerId, t.TelemetryId, err.Error())
 		return err
 	}
 	id, err := res.LastInsertId()
@@ -207,7 +207,7 @@ func (r *ReportStagingTableRow) Insert(DB *sql.DB) (err error) {
 		r.Key, r.Data, false, r.ReceivedTimestamp,
 	)
 	if err != nil {
-		log.Printf("failed to insert Report entry with ReportId %q: %s", r.Key, err.Error())
+		log.Printf("ERR: failed to insert Report entry with ReportId %q: %s", r.Key, err.Error())
 		return err
 	}
 
@@ -217,7 +217,7 @@ func (r *ReportStagingTableRow) Insert(DB *sql.DB) (err error) {
 func (r *ReportStagingTableRow) Delete(DB *sql.DB) (err error) {
 	_, err = DB.Exec("DELETE FROM reports WHERE key = ?", r.Key)
 	if err != nil {
-		log.Printf("failed to delete Report entry with ReportId %q: %s", r.Key, err.Error())
+		log.Printf("ERR: failed to delete Report entry with ReportId %q: %s", r.Key, err.Error())
 		return err
 	}
 
