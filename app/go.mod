@@ -7,7 +7,7 @@ replace github.com/SUSE/telemetry-server => ../../telemetry-server/
 require github.com/mattn/go-sqlite3 v1.14.22
 
 require (
-	github.com/SUSE/telemetry v0.0.0-00010101000000-000000000000
+	github.com/SUSE/telemetry v0.0.0-20240613193912-dad2f1cdf2a9
 	github.com/go-playground/validator/v10 v10.21.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -24,9 +24,3 @@ require (
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
-
-replace github.com/SUSE/telemetry => ../../telemetry/
-
-replace github.com/SUSE/telemetry/pkg/config => ../../telemetry/pkg/config
-
-replace github.com/SUSE/telemetry/pkg/lib => ../../telemetry/pkg/lib
