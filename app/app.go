@@ -1,8 +1,11 @@
 package app
 
 import (
+	"compress/gzip"
+	"compress/zlib"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -28,6 +31,19 @@ type AppRequest struct {
 	W    http.ResponseWriter
 	R    *http.Request
 	Vars map[string]string
+}
+
+func (ar *AppRequest) getReader() (io.ReadCloser, error) {
+	// Check the Content-Encoding header
+	switch ar.R.Header.Get("Content-Encoding") {
+	case "gzip":
+		return gzip.NewReader(ar.R.Body)
+	case "deflate":
+		return zlib.NewReader(ar.R.Body)
+	default:
+		return ar.R.Body, nil
+	}
+
 }
 
 func (ar *AppRequest) ContentType(contentType string) {

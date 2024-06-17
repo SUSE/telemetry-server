@@ -13,8 +13,17 @@ import (
 
 func (a *App) ReportTelemetry(ar *AppRequest) {
 	log.Printf("INF: %s %s Processing", ar.R.Method, ar.R.URL)
+
+	reader, err := ar.getReader()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "Failed to decompress request body")
+		return
+	}
+
+	defer reader.Close()
+
 	// retrieve the request body
-	reqBody, err := io.ReadAll(ar.R.Body)
+	reqBody, err := io.ReadAll(reader)
 	if err != nil {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
