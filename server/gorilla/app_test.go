@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -80,7 +84,58 @@ func (t *AppTestSuite) TestReportTelemetry() {
 
 	body := createReportPayload(t.T())
 
-	rr, err := postToReportTelemetryHandler(body, t)
+	rr, err := postToReportTelemetryHandler(body, "", t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 200, rr.Code)
+
+	//Validate the response has these attributes
+	substrings := []string{"processingId", "processedAt"}
+	for _, substring := range substrings {
+		if !strings.Contains(rr.Body.String(), substring) {
+			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
+		}
+	}
+
+}
+
+func (t *AppTestSuite) TestReportTelemetryCompressedPayloadGZIP() {
+	// Test the handler wrapper.reportTelemetry with compressed payload
+	// Simulated request handled via the router's ServeHTTP
+	// Response recorded via the httptest.HttpRecorder
+
+	body := createReportPayload(t.T())
+
+	//Compress payload
+	cbody, err := compressedData([]byte(body), "gzip")
+	assert.NoError(t.T(), err)
+
+	rr, err := postToReportTelemetryHandler(string(cbody), "gzip", t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 200, rr.Code)
+
+	//Validate the response has these attributes
+	substrings := []string{"processingId", "processedAt"}
+	for _, substring := range substrings {
+		if !strings.Contains(rr.Body.String(), substring) {
+			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
+		}
+	}
+}
+
+func (t *AppTestSuite) TestReportTelemetryCompressedPayloadDeflate() {
+	// Test the handler wrapper.reportTelemetry with compressed payload
+	// Simulated request handled via the router's ServeHTTP
+	// Response recorded via the httptest.HttpRecorder
+
+	body := createReportPayload(t.T())
+
+	//Compress payload
+	cbody, err := compressedData([]byte(body), "deflate")
+	assert.NoError(t.T(), err)
+
+	rr, err := postToReportTelemetryHandler(string(cbody), "deflate", t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 200, rr.Code)
@@ -121,7 +176,7 @@ func (t *AppTestSuite) TestReportTelemetryWithInvalidJSON() {
 	// Create a POST request with the necessary body
 	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":1,"buncleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
 
-	rr, err := postToReportTelemetryHandler(body, t)
+	rr, err := postToReportTelemetryHandler(body, "", t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 400, rr.Code)
@@ -143,7 +198,7 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyPayload() {
 	//Test the wrapper.reportTelemetry handler
 	// Create a POST request with the necessary body
 	body := `{}`
-	rr, err := postToReportTelemetryHandler(body, t)
+	rr, err := postToReportTelemetryHandler(body, "", t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 400, rr.Code)
@@ -189,7 +244,7 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyValues() {
 			//Test the wrapper.reportTelemetry handler
 			// Create a POST request with the necessary body
 
-			rr, err := postToReportTelemetryHandler(formattedBody, t)
+			rr, err := postToReportTelemetryHandler(formattedBody, "", t)
 			assert.NoError(t.T(), err)
 
 			if tt.shouldFail {
@@ -210,9 +265,19 @@ func (t *AppTestSuite) TestRegisterClientWithEmptyJSON() {
 	assert.Equal(t.T(), 400, rr.Code)
 }
 
-func postToReportTelemetryHandler(body string, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
+func postToReportTelemetryHandler(body string, compression string, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
 	req, err := http.NewRequest("POST", "/telemetry/report", strings.NewReader(body))
 	assert.NoError(t.T(), err)
+
+	switch compression {
+	case "gzip":
+		req.Header.Set("Content-Encoding", "gzip")
+	case "deflate":
+		req.Header.Set("Content-Encoding", "deflate")
+	default:
+		//No compression
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	// Record the response
@@ -281,4 +346,34 @@ func createReportPayload(t *testing.T) (reportPayload string) {
 	reportPayload = string(jsonData)
 
 	return
+}
+
+func compressedData(data []byte, alg string) (b []byte, err error) {
+	switch alg {
+	case "gzip":
+		return compress(data, func(w io.Writer) io.WriteCloser {
+			return gzip.NewWriter(w)
+		})
+	case "deflate":
+		return compress(data, func(w io.Writer) io.WriteCloser {
+			return zlib.NewWriter(w)
+		})
+	default:
+		//default compression gzip
+		return compress(data, func(w io.Writer) io.WriteCloser {
+			return gzip.NewWriter(w)
+		})
+	}
+}
+
+func compress(data []byte, writerFunc func(io.Writer) io.WriteCloser) ([]byte, error) {
+	var buf bytes.Buffer
+	writer := writerFunc(&buf)
+	if _, err := writer.Write(data); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
