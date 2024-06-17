@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := build
 
 SUBDIRS = \
-  server/gorilla
+  server/telemetry-server
 
 TARGETS = fmt vet build clean test test-verbose
 

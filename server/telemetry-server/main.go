@@ -1,5 +1,7 @@
 package main
 
+// Telemetry Server application using using the gorilla/mux routing framework.
+
 import (
 	"flag"
 	"fmt"

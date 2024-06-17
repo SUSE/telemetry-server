@@ -11,7 +11,7 @@ In one terminal session you can cd to the telemetry-server/server/gorrila
 directory and run the server as follows:
 
 ```
-% cd telemetry-server/server/gorrila
+% cd telemetry-server/server/telemetry-server
 % rm -rf /tmp/telemetry /tmp/susetelemetry
 % mkdir -p /tmp/telemetry/{client,server} /tmp/susetelemetry 
 % go run . --config ../../testdata/config/localServer.yaml
