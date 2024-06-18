@@ -1,4 +1,4 @@
-module github.com/SUSE/telemetry-server/server/gorilla
+module github.com/SUSE/telemetry-server/server/telemetry-server
 
 go 1.21
 
