@@ -43,6 +43,10 @@ func (rw *routerWrapper) reportTelemetry(w http.ResponseWriter, r *http.Request)
 	rw.app.ReportTelemetry(newAppRequest(w, r))
 }
 
+func (rw *routerWrapper) healthCheck(w http.ResponseWriter, r *http.Request) {
+	rw.app.HealthCheck(newAppRequest(w, r))
+}
+
 // options is a struct of the options
 type options struct {
 	Config string `json:"config"`
@@ -93,6 +97,7 @@ func SetupRouterWrapper(router *mux.Router, app *app.App) {
 
 	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
 	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
+	router.HandleFunc("/healthz", wrapper.healthCheck).Methods("GET", "HEAD")
 
 }
 
