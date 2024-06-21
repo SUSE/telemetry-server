@@ -7,7 +7,7 @@ under the same directory:
 * github.com/SUSE/telemetry
 * github.com/SUSE/telemetry-server
 
-In one terminal session you can cd to the telemetry-server/server/gorrila
+In one terminal session you can cd to the telemetry-server/server/telemetry-server
 directory and run the server as follows:
 
 ```
@@ -15,6 +15,18 @@ directory and run the server as follows:
 % rm -rf /tmp/telemetry /tmp/susetelemetry
 % mkdir -p /tmp/telemetry/{client,server} /tmp/susetelemetry 
 % go run . --config ../../testdata/config/localServer.yaml
+```
+
+The telemetry-server can be run as a docker container.
+Build the image:
+```
+% cd telemetry-server
+% docker build -t telemetry-server .
+```
+Run the docker container:
+NOTE:  --network=host is used only for local docker run based testing
+```
+% docker run --network=host --rm -it -d -p 9999:9999 --name telemetry-server telemetry-server
 ```
 
 Then in another terminal session you can cd to telemetry/cmd/generator
