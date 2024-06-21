@@ -3,9 +3,10 @@ package main
 // Telemetry Server application using using the gorilla/mux routing framework.
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/SUSE/telemetry-server/app"
@@ -21,25 +22,36 @@ func newRouterWrapper(router *mux.Router, app *app.App) *routerWrapper {
 	return &routerWrapper{router: router, app: app}
 }
 
-func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
-	req := &app.AppRequest{W: w, R: r, Vars: mux.Vars(r)}
+func reqLogger(r *http.Request) *slog.Logger {
+	return slog.Default().With(slog.String("method", r.Method), slog.Any("URL", r.URL))
+}
 
-	rw.app.RegisterClient(req)
+func newAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
+	return &app.AppRequest{
+		W:    w,
+		R:    r,
+		Vars: mux.Vars(r),
+		Log:  reqLogger(r),
+	}
+}
+
+func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
+	rw.app.RegisterClient(newAppRequest(w, r))
 }
 
 func (rw *routerWrapper) reportTelemetry(w http.ResponseWriter, r *http.Request) {
-	req := &app.AppRequest{W: w, R: r, Vars: mux.Vars(r)}
-
-	rw.app.ReportTelemetry(req)
+	rw.app.ReportTelemetry(newAppRequest(w, r))
 }
 
 // options is a struct of the options
 type options struct {
-	config string
+	Config string `json:"config"`
+	Debug  bool   `json:"debug"`
 }
 
 func (o options) String() string {
-	return fmt.Sprintf("Options: config=%q", o.config)
+	str, _ := json.Marshal(o)
+	return string(str)
 }
 
 var opts options
@@ -48,22 +60,31 @@ func main() {
 
 	parseCommandLineFlags()
 
-	log.Printf("INF: Preparing to start gorilla/mux based server with options: %s", opts)
+	// setup basic logging that will later be superseded by the settings
+	// specified in the config file, providing some level of consistency
+	// for log messages generated before and after the config is loaded.
+	app.SetupBasicLogging(opts.Debug)
 
-	cfg := app.NewConfig(opts.config)
+	slog.Debug("Preparing to start gorilla/mux based server", slog.Any("options", opts))
+
+	cfg := app.NewConfig(opts.Config)
 	if err := cfg.Load(); err != nil {
 		log.Fatal(err)
 	}
 
-	log.Printf("INF: Config: %v", cfg)
+	slog.Debug("Loaded config", slog.String("path", opts.Config), slog.Any("config", cfg))
 
-	a, _ := InitializeApp(cfg)
+	a, _ := InitializeApp(cfg, opts.Debug)
 
 	a.Run()
 }
 
 func parseCommandLineFlags() {
-	flag.StringVar(&opts.config, "config", app.DEFAULT_CONFIG, "Path to config file to use")
+	// define available flags
+	flag.StringVar(&opts.Config, "config", app.DEFAULT_CONFIG, "Path to `config` file to use")
+	flag.BoolVar(&opts.Debug, "debug", false, "Enables debug level messages")
+
+	// parse supplied command line flags
 	flag.Parse()
 }
 
@@ -75,14 +96,16 @@ func SetupRouterWrapper(router *mux.Router, app *app.App) {
 
 }
 
-func InitializeApp(cfg *app.Config) (a *app.App, router *mux.Router) {
+func InitializeApp(cfg *app.Config, debug bool) (a *app.App, router *mux.Router) {
 	router = mux.NewRouter()
 
-	a = app.NewApp(cfg, router)
+	a = app.NewApp(cfg, router, debug)
 
 	SetupRouterWrapper(router, a)
 
-	a.Initialize()
+	if err := a.Initialize(); err != nil {
+		panic(err)
+	}
 
 	return
 }

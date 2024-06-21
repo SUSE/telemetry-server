@@ -8,3 +8,7 @@ dbs:
   staging:
     driver: sqlite3
     params: /tmp/telemetry/server/staging.db
+logging:
+  level: info
+  location: stderr
+  style: text

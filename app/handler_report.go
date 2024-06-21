@@ -3,7 +3,7 @@ package app
 import (
 	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/SUSE/telemetry/pkg/restapi"
@@ -12,7 +12,7 @@ import (
 )
 
 func (a *App) ReportTelemetry(ar *AppRequest) {
-	log.Printf("INF: %s %s Processing", ar.R.Method, ar.R.URL)
+	ar.Log.Info("Processing")
 
 	reader, err := ar.getReader()
 	if err != nil {
@@ -28,7 +28,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Printf("INF: %s %s reqBody: %s", ar.R.Method, ar.R.URL, reqBody)
+	ar.Log.Debug("Extracted", slog.Any("body", reqBody))
 
 	// unmarshal the request body to the request struct
 	var trReq restapi.TelemetryReportRequest
@@ -45,7 +45,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		return
 	}
 
-	log.Printf("INF: %s %s trReq: %s", ar.R.Method, ar.R.URL, &trReq)
+	ar.Log.Debug("Unmarshaled", slog.Any("trReq", &trReq))
 
 	// save the report into the staging db
 	a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)
@@ -55,7 +55,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 
 	// initialise a telemetry report response
 	trResp := restapi.NewTelemetryReportResponse(0, types.Now())
-	log.Printf("INF: %s %s trResp: %s", ar.R.Method, ar.R.URL, trResp)
+	ar.Log.Debug("Response", slog.Any("trResp", trResp))
 
 	// respond success with the telemetry report response
 	ar.JsonResponse(http.StatusOK, trResp)

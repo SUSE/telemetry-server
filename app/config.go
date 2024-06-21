@@ -1,8 +1,9 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -36,6 +37,17 @@ func (d *DBConfig) Valid() error {
 	return nil
 }
 
+type LogConfig struct {
+	Level    string `yaml:"level" json:"level"`
+	Location string `yaml:"location" json:"location"`
+	Style    string `yaml:"style" json:"style"`
+}
+
+func (lc *LogConfig) String() string {
+	str, _ := json.Marshal(lc)
+	return string(str)
+}
+
 type Config struct {
 	cfgPath string
 	API     APIConfig `yaml:"api"`
@@ -45,6 +57,7 @@ type Config struct {
 		Staging   DBConfig `yaml:"staging"`
 		//add other databases here
 	} `yaml:"dbs"`
+	Logging LogConfig `yaml:"logging"`
 }
 
 func NewConfig(cfgFile string) *Config {
@@ -58,7 +71,7 @@ func (cfg *Config) Path() string {
 }
 
 func (cfg *Config) Load() error {
-	log.Printf("DBG: cfgPath: %q", cfg.cfgPath)
+	slog.Debug("Loading config", slog.String("path", cfg.cfgPath))
 	_, err := os.Stat(cfg.cfgPath)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("config file '%s' doesn't exist: %s", cfg.cfgPath, err)
@@ -69,7 +82,7 @@ func (cfg *Config) Load() error {
 		return fmt.Errorf("failed to read contents of config file '%s': %s", cfg.cfgPath, err)
 	}
 
-	log.Printf("DBG: Contents: %q", contents)
+	slog.Debug("Loaded config", slog.String("contents", string(contents)))
 	err = yaml.Unmarshal(contents, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to parse contents of config file '%s': %s", cfg.cfgPath, err)

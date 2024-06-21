@@ -67,8 +67,8 @@ dbs:
 	err = s.config.Load()
 	require.NoError(s.T(), err)
 
-	// Initialize your app and setup a router
-	s.app, s.router = InitializeApp(s.config)
+	// Initialize your app and setup a router with debug mode enabled
+	s.app, s.router = InitializeApp(s.config, true)
 
 }
 
