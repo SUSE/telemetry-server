@@ -377,3 +377,19 @@ func compress(data []byte, writerFunc func(io.Writer) io.WriteCloser) ([]byte, e
 	}
 	return buf.Bytes(), nil
 }
+
+func (t *AppTestSuite) TestHealthCheckHandler() {
+	//Test the wrapper.healthCheck handler
+	req, err := http.NewRequest("GET", "/healthz", nil)
+	assert.NoError(t.T(), err)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Record the response
+	rr := httptest.NewRecorder()
+
+	t.router.ServeHTTP(rr, req)
+
+	// Check the status code is what we expect.
+	assert.Equal(t.T(), http.StatusOK, rr.Code)
+
+}
