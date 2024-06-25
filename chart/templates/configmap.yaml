@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-server-config
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  file-from-cfgmap: |
+  {{- toYaml .Values.config | nindent 4 }}
