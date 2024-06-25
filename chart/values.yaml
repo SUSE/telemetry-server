@@ -1,0 +1,141 @@
+# Default values for chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: docker.io/mbelur/ts #until we have an image built in our build system
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "v0.2.0"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+# fsGroup: 2000
+
+securityContext: {}
+# capabilities:
+#   drop:
+#   - ALL
+# readOnlyRootFilesystem: true
+# runAsNonRoot: true
+# runAsUser: 1000
+
+### service ###
+# Override to use NodePort or LoadBalancer service type - default is ClusterIP
+service:
+  type: "ClusterIP"
+  port: 9999
+
+
+ingress:
+  # If set to false, ingress will not be created
+  # Defaults to true
+  # options: true, false
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+  hosts:
+  - host: telemetry.example.org #Fully qualified hostname to access telemetry server
+    paths:
+    - path: /
+      pathType: ImplementationSpecific
+
+  tls: []
+
+
+resources: {}
+# We usually recommend not to specify default resources and to leave this as a conscious
+# choice for the user. This also increases chances charts run on environments with little
+# resources, such as Minikube. If you do want to specify resources, uncomment the following
+# lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+# limits:
+#   cpu: 100m
+#   memory: 128Mi
+# requests:
+#   cpu: 100m
+#   memory: 128Mi
+
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 9999
+  ## should be ready within 2 minutes
+  timeoutSeconds: 5
+  periodSeconds: 10
+  failureThreshold: 12
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 9999
+  timeoutSeconds: 5
+  periodSeconds: 30
+  failureThreshold: 5
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 9999
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes:
+- name: cfg-mnt
+  configMap:
+    name: telemetry-server-config
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts:
+- name: cfg-mnt
+  mountPath: "/etc/susetelemetry/server.cfg"
+  subPath: file-from-cfgmap
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  api:
+    host: ""
+    port: 9999
+  dbs:
+    telemetry:
+      driver: sqlite3
+      params: /tmp/telemetry/server/telemetry.db
+    staging:
+      driver: sqlite3
+      params: /tmp/telemetry/server/staging.db
+  logging:
+    level: debug
+    location: stderr
+    style: text
