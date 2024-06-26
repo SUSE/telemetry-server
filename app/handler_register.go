@@ -3,7 +3,7 @@ package app
 import (
 	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/SUSE/telemetry/pkg/restapi"
@@ -12,14 +12,15 @@ import (
 
 // RegisterClient is responsible for handling client registrations
 func (a *App) RegisterClient(ar *AppRequest) {
-	log.Printf("INF: %s %s Processing", ar.R.Method, ar.R.URL)
+	ar.Log.Info("Processing", ar.R.Method, ar.R.URL)
+
 	// retrieve the request body
 	reqBody, err := io.ReadAll(ar.R.Body)
 	if err != nil {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	log.Printf("INF: %s %s reqBody: %s", ar.R.Method, ar.R.URL, reqBody)
+	ar.Log.Debug("Extracted", slog.Any("body", reqBody))
 
 	// unmarshal the request body to the request struct
 	var crReq restapi.ClientRegistrationRequest
@@ -32,7 +33,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, "no ClientInstanceId value provided")
 		return
 	}
-	log.Printf("INF: %s %s crReq: %s", ar.R.Method, ar.R.URL, &crReq)
+	ar.Log.Debug("Unmarshaled", slog.Any("crReq", &crReq))
 
 	// register the client
 	client := ClientsRow{ClientInstanceId: crReq.ClientInstanceId}
@@ -55,7 +56,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		AuthToken: client.AuthToken,
 		IssueDate: client.RegistrationDate,
 	}
-	log.Printf("INF: %s %s crResp: %s", ar.R.Method, ar.R.URL, &crResp)
+	ar.Log.Debug("Response", slog.Any("crResp", crResp))
 
 	// respond success with the client registration response
 	ar.JsonResponse(http.StatusOK, crResp)

@@ -2,7 +2,7 @@ package app
 
 import (
 	"database/sql"
-	"log"
+	"log/slog"
 
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 )
@@ -18,17 +18,17 @@ func (a *App) StoreTelemetry(dItm *telemetrylib.TelemetryDataItem, bHeader *tele
 	// add the tagSet to the tagSets table, if not already present
 	if !tsRow.Exists(a.TelemetryDB.Conn) {
 		if err := tsRow.Insert(a.TelemetryDB.Conn); err != nil {
-			log.Printf("ERR: failed to add tagSet %q: %s", tsRow.TagSet, err.Error())
+			slog.Error("tagSet insert failed", slog.String("tagSet", tsRow.TagSet), slog.String("error", err.Error()))
 			return err
 		}
 
-		log.Printf("INF: successfully added tagSet %q as entry %v", tsRow.TagSet, tsRow.Id)
+		slog.Info("tagSet added successfully", slog.String("tagSet", tsRow.TagSet), slog.Int64("id", tsRow.Id))
 	}
 
 	// store the telemetry
 	err = a.StoreTelemetryData(dItm, bHeader, tsRow.Id)
 	if err != nil {
-		log.Printf("ERR: Failed to store telemetry: %s", err.Error())
+		slog.Error("telemetry store failed", slog.String("telemetryId", dItm.Header.TelemetryId), slog.String("error", err.Error()))
 	}
 	return
 }
@@ -38,25 +38,29 @@ func (a *App) StoreTelemetryData(dItm *telemetrylib.TelemetryDataItem, bHdr *tel
 
 	err = tdRow.Init(dItm, bHdr, tagSetId)
 	if err != nil {
-		log.Printf(
-			"ERR: Init() failed for unstructured tdRow for telemetryId %q: %s",
-			dItm.Header.TelemetryId, err.Error(),
+		slog.Error(
+			"unstructured tdRow init failed",
+			slog.String("telemetryId", dItm.Header.TelemetryId),
+			slog.String("error", err.Error()),
 		)
 		return
 	}
 
 	if !tdRow.Exists() {
 		if err := tdRow.Insert(); err != nil {
-			log.Printf(
-				"ERR: failed to add entry to table %q for telemetryId %q: %s",
-				tdRow.TableName(), dItm.Header.TelemetryId, err.Error(),
+			slog.Error(
+				"unstructured tdRow insert failed",
+				slog.String("tableName", tdRow.TableName()),
+				slog.String("telemetryId", dItm.Header.TelemetryId),
+				slog.String("error", err.Error()),
 			)
 			return err
 		}
 
-		log.Printf(
-			"INF: successfully added table %q entry for telemetryID %q id %v",
-			tdRow.TableName(), dItm.Header.TelemetryId, tdRow.RowId(),
+		slog.Info(
+			"unstructured tdRow insert success",
+			slog.String("tableName", tdRow.TableName()),
+			slog.String("telemetryId", dItm.Header.TelemetryId),
 		)
 	}
 

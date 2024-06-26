@@ -3,7 +3,7 @@ package app
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 )
 
 const clientsTableColumns = `(
@@ -29,7 +29,7 @@ func (c *ClientsRow) Exists(DB *sql.DB) bool {
 	row := DB.QueryRow(`SELECT id FROM clients WHERE clientInstanceId = ?`, c.ClientInstanceId)
 	if err := row.Scan(&c.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of client with clientInstanceId = %q: %s", c.ClientInstanceId, err.Error())
+			slog.Error("client existence check failed", slog.Any("clientInstanceId", c.ClientInstanceId), slog.String("error", err.Error()))
 		}
 		return false
 	}
@@ -42,12 +42,12 @@ func (c *ClientsRow) Insert(DB *sql.DB) (err error) {
 		c.ClientInstanceId, c.RegistrationDate, c.AuthToken,
 	)
 	if err != nil {
-		log.Printf("ERR: failed to add client %q: %s", c.ClientInstanceId, err.Error())
+		slog.Error("client insert failed", slog.Any("clientInstanceId", c.ClientInstanceId), slog.String("error", err.Error()))
 		return err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted client %q: %s", c.ClientInstanceId, err.Error())
+		slog.Error("client LastInsertId() failed", slog.Any("clientInstanceId", c.ClientInstanceId), slog.String("error", err.Error()))
 		return err
 	}
 	c.Id = id

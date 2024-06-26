@@ -3,7 +3,7 @@ package app
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 )
@@ -34,9 +34,12 @@ func (t *DefaultTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHd
 	// marshal telemetry data as JSON
 	jsonData, err := json.Marshal(dItm.TelemetryData)
 	if err != nil {
-		log.Printf(
-			"ERR: failed when JSON marshaling telemetry data for clientId %q, telemetryId %q, timestamp %q: %s",
-			t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+		slog.Error(
+			"JSON marshal failed",
+			slog.Int64("clientId", t.ClientId),
+			slog.String("telemetryId", t.TelemetryId),
+			slog.String("timestamp", t.Timestamp),
+			slog.String("error", err.Error()),
 		)
 		return
 	}
@@ -55,7 +58,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`SELECT id, customerId, telemetryType, tagSetId, dataItem FROM telemetryData WHERE clientId = ? AND telemetryId = ? AND timestamp = ?`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare exists statement for %q: %s", t.table, err.Error())
+		slog.Error("exists statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -64,7 +67,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`INSERT INTO telemetryData(clientId, customerId, telemetryId, telemetryType, timestamp, tagSetId, dataItem) VALUES(?, ?, ?, ?, ?, ?, ?)`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare insert statement for %q: %s", t.table, err.Error())
+		slog.Error("insert statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -73,7 +76,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`UPDATE telemetryData SET clientId = ?, customerId = ?, telemetryId = ?, telemetryType = ?, timestamp = ?, tagSetId = ?, dataItem = ? WHERE id = ?`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare update statement for %q: %s", t.table, err.Error())
+		slog.Error("update statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -82,7 +85,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`DELETE FROM telemetryData WHERE id = ?`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare delete statement for %q: %s", t.table, err.Error())
+		slog.Error("delete statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -118,9 +121,13 @@ func (t *DefaultTelemetryDataRow) Exists() bool {
 		&t.DataItem,
 	); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf(
-				"ERR: failed when checking table %q for entry matching clientId %q, telemetryId %q, timestamp %q: %s",
-				t.table, t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+			slog.Error(
+				"check for matching entry failed",
+				slog.String("table", t.table),
+				slog.Int64("clientId", t.ClientId),
+				slog.String("telemetryId", t.TelemetryId),
+				slog.String("timestamp", t.Timestamp),
+				slog.String("error", err.Error()),
 			)
 		}
 		return false
@@ -139,17 +146,25 @@ func (t *DefaultTelemetryDataRow) Insert() (err error) {
 		t.DataItem,
 	)
 	if err != nil {
-		log.Printf(
-			"ERR: failed to add table %q entry for clientId %q, telemetryId %q, timestamp %q: %s",
-			t.table, t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+		slog.Error(
+			"insert failed",
+			slog.String("table", t.table),
+			slog.Int64("clientId", t.ClientId),
+			slog.String("telemetryId", t.TelemetryId),
+			slog.String("timestamp", t.Timestamp),
+			slog.String("error", err.Error()),
 		)
 		return
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf(
-			"ERR: failed to retrieve id for newly inserted table %q entry for clientId %q, telemetryId %q, timestamp %q: %s",
-			t.table, t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+		slog.Error(
+			"LastInsertId() failed",
+			slog.String("table", t.table),
+			slog.Int64("clientId", t.ClientId),
+			slog.String("telemetryId", t.TelemetryId),
+			slog.String("timestamp", t.Timestamp),
+			slog.String("error", err.Error()),
 		)
 		return
 	}
@@ -170,9 +185,11 @@ func (t *DefaultTelemetryDataRow) Update() (err error) {
 		t.Id,
 	)
 	if err != nil {
-		log.Printf(
-			"ERR: failed to update table %q entry %v: %s",
-			t.table, t.Id, err.Error(),
+		slog.Error(
+			"update failed",
+			slog.String("table", t.table),
+			slog.Int64("id", t.Id),
+			slog.String("error", err.Error()),
 		)
 	}
 	return
@@ -183,9 +200,11 @@ func (t *DefaultTelemetryDataRow) Delete() (err error) {
 		t.Id,
 	)
 	if err != nil {
-		log.Printf(
-			"ERR: failed to delete table %q entry %v: %s",
-			t.table, t.Id, err.Error(),
+		slog.Error(
+			"delete failed",
+			slog.String("table", t.table),
+			slog.Int64("id", t.Id),
+			slog.String("error", err.Error()),
 		)
 	}
 	return
