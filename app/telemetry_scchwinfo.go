@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"strconv"
 
@@ -84,21 +84,20 @@ func int64Conv(value any) (outValue int64, err error) {
 func (t *SccHwInfoTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) (err error) {
 	t.TelemetryDataCommon.Init(dItm, bHdr, tagSetId)
 
-	err = checkRequiredMapFieldsExist(dItm.TelemetryData, "hwinfo", "distro_target")
+	hwiName := "hwinfo"
+	err = checkRequiredMapFieldsExist(dItm.TelemetryData, hwiName, "distro_target")
 	if err != nil {
-		log.Printf("ERR: telemetryType %q: %s", t.TelemetryType, err.Error())
+		slog.Error("required data fields missing", slog.String("telemetryType", t.TelemetryType), slog.String("error", err.Error()))
 		return
 	}
-	hwiName := "hwinfo"
 	hwi, ok := dItm.TelemetryData[hwiName].(map[string]any)
 	if !ok {
 		err := fmt.Errorf("field %q in telemetryType %q data is not a map", hwiName, t.TelemetryType)
-		log.Printf("ERR: %s", err.Error())
 		return err
 	}
 	err = checkRequiredMapFieldsExist(hwi, "hostname", "cpus", "sockets", "mem_total", "arch", "uuid", "hypervisor", "cloud_provider")
 	if err != nil {
-		log.Printf("ERR: field %q in telemetryType %q: %s", hwiName, t.TelemetryType, err.Error())
+		slog.Error("required data subfields missing", slog.String("field", hwiName), slog.String("telemetryType", t.TelemetryType), slog.String("error", err.Error()))
 		return
 	}
 
@@ -107,17 +106,38 @@ func (t *SccHwInfoTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, b
 
 	t.Cpus, err = int64Conv(hwi["cpus"])
 	if err != nil {
-		log.Printf("ERR: failed to convert %q field to %q for %t: %s", "cpus", "int64", hwi["cpus"], err.Error())
+		slog.Error(
+			"type conversion failed",
+			slog.String("field", hwiName+".cpus"),
+			slog.Any("value", hwi["cpus"]),
+			slog.String("type", "int64"),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
 	t.Sockets, err = int64Conv(hwi["sockets"])
 	if err != nil {
-		log.Printf("ERR: failed to convert %q field to %q for %t: %s", "sockets", "int64", hwi["sockets"], err.Error())
+		slog.Error(
+			"type conversion failed",
+			slog.String("field", hwiName+".sockets"),
+			slog.Any("value", hwi["sockets"]),
+			slog.String("type", "int64"),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
 	t.MemTotal, err = int64Conv(hwi["mem_total"])
 	if err != nil {
-		log.Printf("ERR: failed to convert %q field to %q for %t: %s", "mem_total", "int64", hwi["mem_total"], err.Error())
+		slog.Error(
+			"type conversion failed",
+			slog.String("field", hwiName+".mem_total"),
+			slog.Any("value", hwi["mem_total"]),
+			slog.String("type", "int64"),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
 	t.Arch = hwi["arch"].(string)
@@ -138,7 +158,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`SELECT id, customerId, telemetryType, tagSetId, hostname, distroTarget, cpus, sockets, memTotal, arch, uuid, hypervisor, cloudProvider FROM telemetrySccHwInfo WHERE clientId = ? AND telemetryId = ? AND timestamp = ?`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare exists statement for %q: %s", t.table, err.Error())
+		slog.Error("exists statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -147,7 +167,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`INSERT INTO telemetrySccHwInfo(clientId, customerId, telemetryId, telemetryType, timestamp, tagSetId, hostname, distroTarget, cpus, sockets, memTotal, arch, uuid, hypervisor, cloudProvider) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare insert statement for %q: %s", t.table, err.Error())
+		slog.Error("insert statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -156,7 +176,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`UPDATE telemetrySccHwInfo SET clientId = ?, customerId = ?, telemetryId = ?, telemetryType = ?, timestamp = ?, tagSetId = ?, hostname = ?, distroTarget = ?, cpus = ?, sockets = ?, memTotal = ?, arch = ?, uuid = ?, hypervisor = ?, cloudProvider = ? WHERE id = ?`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare update statement for %q: %s", t.table, err.Error())
+		slog.Error("update statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -165,7 +185,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 		`DELETE FROM telemetrySccHwInfo WHERE id = ?`,
 	)
 	if err != nil {
-		log.Printf("ERR: Failed to prepare delete statement for %q: %s", t.table, err.Error())
+		slog.Error("delete statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
 		return
 	}
 
@@ -209,9 +229,13 @@ func (t *SccHwInfoTelemetryDataRow) Exists() bool {
 		&t.CloudProvider,
 	); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf(
-				"ERR: failed when checking table %q for entry matching clientId %q, telemetryId %q, timestamp %q: %s",
-				t.table, t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+			slog.Error(
+				"check for matching entry failed",
+				slog.String("table", t.table),
+				slog.Int64("clientId", t.ClientId),
+				slog.String("telemetryId", t.TelemetryId),
+				slog.String("timestamp", t.Timestamp),
+				slog.String("error", err.Error()),
 			)
 		}
 		return false
@@ -238,17 +262,25 @@ func (t *SccHwInfoTelemetryDataRow) Insert() (err error) {
 		t.CloudProvider,
 	)
 	if err != nil {
-		log.Printf(
-			"ERR: failed to add table %q entry for clientId %q, telemetryId %q, timestamp %q: %s",
-			t.table, t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+		slog.Error(
+			"insert failed",
+			slog.String("table", t.table),
+			slog.Int64("clientId", t.ClientId),
+			slog.String("telemetryId", t.TelemetryId),
+			slog.String("timestamp", t.Timestamp),
+			slog.String("error", err.Error()),
 		)
 		return
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf(
-			"ERR: failed to retrieve id for newly inserted table %q entry for clientId %q, telemetryId %q, timestamp %q: %s",
-			t.table, t.ClientId, t.TelemetryId, t.Timestamp, err.Error(),
+		slog.Error(
+			"LastInsertId() failed",
+			slog.String("table", t.table),
+			slog.Int64("clientId", t.ClientId),
+			slog.String("telemetryId", t.TelemetryId),
+			slog.String("timestamp", t.Timestamp),
+			slog.String("error", err.Error()),
 		)
 		return
 	}
@@ -277,9 +309,11 @@ func (t *SccHwInfoTelemetryDataRow) Update() (err error) {
 		t.Id,
 	)
 	if err != nil {
-		log.Printf(
-			"ERR: failed to update table %q entry %v: %s",
-			t.table, t.Id, err.Error(),
+		slog.Error(
+			"update failed",
+			slog.String("table", t.table),
+			slog.Int64("id", t.Id),
+			slog.String("error", err.Error()),
 		)
 	}
 	return
@@ -290,9 +324,11 @@ func (t *SccHwInfoTelemetryDataRow) Delete() (err error) {
 		t.Id,
 	)
 	if err != nil {
-		log.Printf(
-			"ERR: failed to delete table %q entry %v: %s",
-			t.table, t.Id, err.Error(),
+		slog.Error(
+			"delete failed",
+			slog.String("table", t.table),
+			slog.Int64("id", t.Id),
+			slog.String("error", err.Error()),
 		)
 	}
 	return

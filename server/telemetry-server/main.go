@@ -5,7 +5,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"log"
 	"log/slog"
 	"net/http"
 
@@ -73,7 +72,8 @@ func main() {
 
 	cfg := app.NewConfig(opts.Config)
 	if err := cfg.Load(); err != nil {
-		log.Fatal(err)
+		slog.Error("config load failed", slog.String("config", opts.Config), slog.String("error", err.Error()))
+		panic(err)
 	}
 
 	slog.Debug("Loaded config", slog.String("path", opts.Config), slog.Any("config", cfg))

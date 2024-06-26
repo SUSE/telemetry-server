@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"slices"
 	"strings"
 )
@@ -60,7 +60,7 @@ func (t *TagSetRow) Exists(DB *sql.DB) bool {
 	row := DB.QueryRow(`SELECT id FROM tagSets WHERE tagSet = ?`, t.TagSet)
 	if err := row.Scan(&t.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of tagSet %q: %s", t.TagSet, err.Error())
+			slog.Error("tagSet existence check failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
 		}
 		return false
 	}
@@ -73,12 +73,12 @@ func (t *TagSetRow) Insert(DB *sql.DB) (err error) {
 		t.TagSet,
 	)
 	if err != nil {
-		log.Printf("ERR: failed to add tagSet %q: %s", t.TagSet, err.Error())
+		slog.Error("tagSet insert failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
 		return err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted tagSet %q: %s", t.TagSet, err.Error())
+		slog.Error("tagSet LastInsertId() failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
 		return err
 	}
 	t.Id = id
