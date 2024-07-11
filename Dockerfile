@@ -9,19 +9,36 @@ WORKDIR /var/cache
 RUN git clone https://github.com/SUSE/telemetry
 RUN cd telemetry; make build
 
-# Copy local code to the container image.
-RUN mkdir ./telemetry-server
+# Create dest directory for local code
+RUN mkdir -p ./telemetry-server/server/telemetry-server
+
+# Copy main go.mod and go.sum to dest directory and run go mod download
+COPY go.mod ./telemetry-server
+COPY go.sum ./telemetry-server
+RUN cd telemetry-server; go mod download
+
+# Copy main go.mod and go.sum to dest directory and run go mod download
+COPY server/telemetry-server/go.mod ./telemetry-server/server/telemetry-server
+COPY server/telemetry-server/go.sum ./telemetry-server/server/telemetry-server
+RUN cd telemetry-server/server/telemetry-server; go mod download
+
+# Copy remaining code to dest directory
 COPY . ./telemetry-server
 
+# Build the telemetry server
 RUN cd telemetry-server; make build
 
-# Final Image: Start a new build stage with bci-base image as the base and copy the build artifacts from the previous stage into this new stage.
+# Final Image: Start a new build stage with bci-base image as the base and
+# copy the built artifacts from the previous stage into this new stage.
 FROM registry.suse.com/bci/bci-base:15.6
 
-RUN set -euo pipefail; zypper -n  in --no-recommends sqlite3 ; zypper -n clean;
+# Install database support tools
+RUN set -euo pipefail; zypper -n install --no-recommends sqlite3; zypper -n clean;
 
 COPY --from=builder /var/cache/telemetry-server/server/telemetry-server/telemetry-server /usr/bin/telemetry-server
-COPY --from=builder /var/cache/telemetry-server/testdata/config/localServer.yaml /etc/susetelemetry/server.cfg
+
+ARG cfgFile=dockerServer.yaml
+COPY --from=builder /var/cache/telemetry-server/testdata/config/$cfgFile /etc/susetelemetry/server.cfg
 
 #### This block can be removed once we have the package built with a spec that creates user/group/folders
 ARG user=tsvc
@@ -44,4 +61,4 @@ RUN chmod 700 /app/entrypoint.bash
 
 ENTRYPOINT ["/app/entrypoint.bash"]
 CMD ["--config", "/etc/susetelemetry/server.cfg"]
-
+HEALTHCHECK --interval=30s --timeout=5s CMD curl --fail --insecure http://localhost:9999/healthz || exit 1
