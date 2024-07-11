@@ -148,13 +148,13 @@ func (t *SccHwInfoTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, b
 	return
 }
 
-func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
+func (t *SccHwInfoTelemetryDataRow) SetupDB(db *DbConnection) (err error) {
 	t.TelemetryDataCommon.SetupDB(db)
 
 	t.table = `telemetrySccHwInfo`
 
 	// prepare exists check statement
-	t.exists, err = t.db.Prepare(
+	t.exists, err = t.db.Conn.Prepare(
 		`SELECT id, customerId, telemetryType, tagSetId, hostname, distroTarget, cpus, sockets, memTotal, arch, uuid, hypervisor, cloudProvider FROM telemetrySccHwInfo WHERE clientId = ? AND telemetryId = ? AND timestamp = ?`,
 	)
 	if err != nil {
@@ -163,7 +163,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 	}
 
 	// prepare insert statement
-	t.insert, err = t.db.Prepare(
+	t.insert, err = t.db.Conn.Prepare(
 		`INSERT INTO telemetrySccHwInfo(clientId, customerId, telemetryId, telemetryType, timestamp, tagSetId, hostname, distroTarget, cpus, sockets, memTotal, arch, uuid, hypervisor, cloudProvider) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 	)
 	if err != nil {
@@ -172,7 +172,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 	}
 
 	// prepare update statement
-	t.update, err = t.db.Prepare(
+	t.update, err = t.db.Conn.Prepare(
 		`UPDATE telemetrySccHwInfo SET clientId = ?, customerId = ?, telemetryId = ?, telemetryType = ?, timestamp = ?, tagSetId = ?, hostname = ?, distroTarget = ?, cpus = ?, sockets = ?, memTotal = ?, arch = ?, uuid = ?, hypervisor = ?, cloudProvider = ? WHERE id = ?`,
 	)
 	if err != nil {
@@ -181,7 +181,7 @@ func (t *SccHwInfoTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 	}
 
 	// prepare delete statement
-	t.delete, err = t.db.Prepare(
+	t.delete, err = t.db.Conn.Prepare(
 		`DELETE FROM telemetrySccHwInfo WHERE id = ?`,
 	)
 	if err != nil {
@@ -335,4 +335,4 @@ func (t *SccHwInfoTelemetryDataRow) Delete() (err error) {
 }
 
 // validate that SccHwInfoTelemetryDataRow implements TelemetryDataRow interface
-var _ TelemetryDataRow = (*SccHwInfoTelemetryDataRow)(nil)
+var _ TelemetryDataRowHandler = (*SccHwInfoTelemetryDataRow)(nil)

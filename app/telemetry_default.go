@@ -48,13 +48,13 @@ func (t *DefaultTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHd
 	return
 }
 
-func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
+func (t *DefaultTelemetryDataRow) SetupDB(db *DbConnection) (err error) {
 	t.TelemetryDataCommon.SetupDB(db)
 
 	t.table = `telemetryData`
 
 	// prepare exists check statement
-	t.exists, err = t.db.Prepare(
+	t.exists, err = t.db.Conn.Prepare(
 		`SELECT id, customerId, telemetryType, tagSetId, dataItem FROM telemetryData WHERE clientId = ? AND telemetryId = ? AND timestamp = ?`,
 	)
 	if err != nil {
@@ -63,7 +63,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 	}
 
 	// prepare insert statement
-	t.insert, err = t.db.Prepare(
+	t.insert, err = t.db.Conn.Prepare(
 		`INSERT INTO telemetryData(clientId, customerId, telemetryId, telemetryType, timestamp, tagSetId, dataItem) VALUES(?, ?, ?, ?, ?, ?, ?)`,
 	)
 	if err != nil {
@@ -72,7 +72,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 	}
 
 	// prepare update statement
-	t.update, err = t.db.Prepare(
+	t.update, err = t.db.Conn.Prepare(
 		`UPDATE telemetryData SET clientId = ?, customerId = ?, telemetryId = ?, telemetryType = ?, timestamp = ?, tagSetId = ?, dataItem = ? WHERE id = ?`,
 	)
 	if err != nil {
@@ -81,7 +81,7 @@ func (t *DefaultTelemetryDataRow) SetupDB(db *sql.DB) (err error) {
 	}
 
 	// prepare delete statement
-	t.delete, err = t.db.Prepare(
+	t.delete, err = t.db.Conn.Prepare(
 		`DELETE FROM telemetryData WHERE id = ?`,
 	)
 	if err != nil {
@@ -211,4 +211,4 @@ func (t *DefaultTelemetryDataRow) Delete() (err error) {
 }
 
 // validate that DefaultTelemetryDataRow implements TelemetryDataRow interface
-var _ TelemetryDataRow = (*DefaultTelemetryDataRow)(nil)
+var _ TelemetryDataRowHandler = (*DefaultTelemetryDataRow)(nil)

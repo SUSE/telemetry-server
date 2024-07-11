@@ -1,7 +1,6 @@
 package app
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 )
@@ -13,20 +12,20 @@ const (
 type TelemetryRowXformMapper interface {
 	// Register a default telemetry row handler, used when no type
 	// specific handler is available
-	SetDefault(handler TelemetryDataRow)
+	SetDefault(handler TelemetryDataRowHandler)
 
 	// Register a row handler for a specific telemetry type
-	Register(telemetryType string, handler TelemetryDataRow)
+	Register(telemetryType string, handler TelemetryDataRowHandler)
 
 	// Setup DB integration for the registered telemetry row handlers
-	SetupDB(db *sql.DB) error
+	SetupDB(db *DbConnection) error
 
 	// Retrieve row handler to use for the specified telemetry type
-	Get(telemetryType string) (handler TelemetryDataRow)
+	Get(telemetryType string) (handler TelemetryDataRowHandler)
 }
 
 type TelemetryRowXformMap struct {
-	handlers map[string]TelemetryDataRow
+	handlers map[string]TelemetryDataRowHandler
 }
 
 func (s *TelemetryRowXformMap) isSetup(caller string) (err error) {
@@ -42,7 +41,7 @@ func (s *TelemetryRowXformMap) isSetup(caller string) (err error) {
 	return
 }
 
-func (s *TelemetryRowXformMap) SetupDB(db *sql.DB) (err error) {
+func (s *TelemetryRowXformMap) SetupDB(db *DbConnection) (err error) {
 	if err := s.isSetup("SetupDB"); err != nil {
 		return err
 	}
@@ -57,7 +56,7 @@ func (s *TelemetryRowXformMap) SetupDB(db *sql.DB) (err error) {
 	return
 }
 
-func (s *TelemetryRowXformMap) Get(telemetryType string) (handler TelemetryDataRow) {
+func (s *TelemetryRowXformMap) Get(telemetryType string) (handler TelemetryDataRowHandler) {
 	if err := s.isSetup("SetupDB"); err != nil {
 		// something is very wrong
 		panic(err)
@@ -71,15 +70,15 @@ func (s *TelemetryRowXformMap) Get(telemetryType string) (handler TelemetryDataR
 	return
 }
 
-func (s *TelemetryRowXformMap) Register(telemetryType string, handler TelemetryDataRow) {
+func (s *TelemetryRowXformMap) Register(telemetryType string, handler TelemetryDataRowHandler) {
 	// allocate s.handlers if needed
 	if s.handlers == nil {
-		s.handlers = make(map[string]TelemetryDataRow)
+		s.handlers = make(map[string]TelemetryDataRowHandler)
 	}
 	s.handlers[telemetryType] = handler
 }
 
-func (s *TelemetryRowXformMap) SetDefault(handler TelemetryDataRow) {
+func (s *TelemetryRowXformMap) SetDefault(handler TelemetryDataRowHandler) {
 	s.Register(DEF_HANDLER, handler)
 }
 

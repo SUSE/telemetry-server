@@ -33,7 +33,7 @@ RUN cd telemetry-server; make build
 FROM registry.suse.com/bci/bci-base:15.6
 
 # Install database support tools
-RUN set -euo pipefail; zypper -n install --no-recommends sqlite3; zypper -n clean;
+RUN set -euo pipefail; zypper -n install --no-recommends sqlite3 postgresql16; zypper -n clean;
 
 COPY --from=builder /var/cache/telemetry-server/server/telemetry-server/telemetry-server /usr/bin/telemetry-server
 

@@ -53,12 +53,17 @@ dbs:
   telemetry:
     driver: sqlite3
     params: %s/telemetry.db
+  operational:
+    driver: sqlite3
+    params: %s/operational.db
   staging:
     driver: sqlite3
     params: %s/staging.db
+logging:
+  level: debug
 `
 
-	formattedContents := fmt.Sprintf(content, s.path, s.path)
+	formattedContents := fmt.Sprintf(content, s.path, s.path, s.path)
 	_, err = tmpfile.Write([]byte(formattedContents))
 	require.NoError(s.T(), err)
 	require.NoError(s.T(), tmpfile.Close())
