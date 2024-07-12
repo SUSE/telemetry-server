@@ -2,7 +2,6 @@ package app
 
 // Telemetry DB Tables
 var dbTablesTelemetry = map[string]string{
-	"clients": clientsTableColumns,
 	"tagSets": tagSetsTableColumns,
 
 	// default telemetry storage table
@@ -12,6 +11,11 @@ var dbTablesTelemetry = map[string]string{
 // telemetry type specific transform tables
 var dbTablesXform = map[string]string{
 	"telemetrySccHwInfo": sccHwInfoTelemetryTableColumns,
+}
+
+// Operational DB Tables
+var dbTablesOperational = map[string]string{
+	"clients": clientsTableColumns,
 }
 
 // Staging DB Tables

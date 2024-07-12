@@ -53,8 +53,9 @@ type Config struct {
 	API     APIConfig `yaml:"api"`
 	//DataStores config.DBConfig `yaml:"datastores"`
 	DataBases struct {
-		Telemetry DBConfig `yaml:"telemetry"`
-		Staging   DBConfig `yaml:"staging"`
+		Telemetry   DBConfig `yaml:"telemetry"`
+		Operational DBConfig `yaml:"operational"`
+		Staging     DBConfig `yaml:"staging"`
 		//add other databases here
 	} `yaml:"dbs"`
 	Logging LogConfig `yaml:"logging"`
