@@ -37,14 +37,14 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	// register the client
 	client := ClientsRow{ClientInstanceId: crReq.ClientInstanceId}
-	if client.Exists(a.TelemetryDB.Conn) {
+	if client.Exists(a.OperationalDB.Conn) {
 		ar.ErrorResponse(http.StatusConflict, "specified clientInstanceId already exists")
 		return
 	}
 
 	client.RegistrationDate = types.Now().String()
 	client.AuthToken = "sometoken"
-	err = client.Insert(a.TelemetryDB.Conn)
+	err = client.Insert(a.OperationalDB.Conn)
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to register new client")
 		return

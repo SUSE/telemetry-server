@@ -100,14 +100,15 @@ func (ar *AppRequest) JsonResponse(code int, payload any) {
 
 // App is a struct tracking the resources associated with the application
 type App struct {
-	debugMode   bool
-	Config      *Config
-	TelemetryDB DbConnection
-	StagingDB   DbConnection
-	Address     ServerAddress
-	Handler     http.Handler
-	Xformers    TelemetryRowXformMapper
-	LogManager  *LogManager
+	debugMode     bool
+	Config        *Config
+	TelemetryDB   DbConnection
+	OperationalDB DbConnection
+	StagingDB     DbConnection
+	Address       ServerAddress
+	Handler       http.Handler
+	Xformers      TelemetryRowXformMapper
+	LogManager    *LogManager
 }
 
 func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
@@ -124,6 +125,7 @@ func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
 
 	// setup databases
 	a.TelemetryDB.Setup(cfg.DataBases.Telemetry)
+	a.OperationalDB.Setup(cfg.DataBases.Staging)
 	a.StagingDB.Setup(cfg.DataBases.Staging)
 
 	// setup telemetry transformations
@@ -174,6 +176,17 @@ func (a *App) Initialize() error {
 
 	if err := a.StagingDB.EnsureTablesExist(dbTablesStaging); err != nil {
 		slog.Error("Staging DB tables setup failed", slog.String("error", err.Error()))
+		return err
+	}
+
+	// operational DB setup
+	if err := a.OperationalDB.Connect(); err != nil {
+		slog.Error("Operational DB connection setup failed", slog.String("error", err.Error()))
+		return err
+	}
+
+	if err := a.OperationalDB.EnsureTablesExist(dbTablesOperational); err != nil {
+		slog.Error("Operational DB tables setup failed", slog.String("error", err.Error()))
 		return err
 	}
 
