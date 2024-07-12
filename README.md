@@ -156,7 +156,6 @@ To check the status of the telemetry-server:
 
 ```
 % make docker-status
-% make docker-status
 docker ps --filter name=\^telemetry-server\$
 CONTAINER ID   IMAGE              COMMAND                  CREATED              STATUS                        PORTS                                       NAMES
 676f8dd20e4e   telemetry-server   "/app/entrypoint.bas…"   About a minute ago   Up About a minute (healthy)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp   telemetry-server
