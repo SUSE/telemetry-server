@@ -1,0 +1,14 @@
+api:
+  host: 0.0.0.0
+  port: 9999
+dbs:
+  telemetry:
+    driver: sqlite3
+    params: /tmp/telemetry/server/telemetry.db
+  staging:
+    driver: sqlite3
+    params: /tmp/telemetry/server/staging.db
+logging:
+  level: info
+  location: stderr
+  style: text
