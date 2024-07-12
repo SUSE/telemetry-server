@@ -1,7 +1,6 @@
 package app
 
 import (
-	"database/sql"
 	"log/slog"
 
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
@@ -67,43 +66,16 @@ func (a *App) StoreTelemetryData(dItm *telemetrylib.TelemetryDataItem, bHdr *tel
 	return
 }
 
-type TelemetryDataRow interface {
+type TelemetryDataRowHandler interface {
+	// TelemetryDataRow is a superset of TableRow
+	TableRowHandler
+
 	// Initialise the row fields
 	Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) error
-
-	// Setup DB access
-	SetupDB(db *sql.DB) error
-
-	// Retrieve the TableName
-	TableName() string
-
-	// Retrieve the RowId
-	RowId() int64
-
-	// Return string representation of the row
-	String() string
-
-	// Check if the row exists in the DB, and if so populate it
-	Exists() bool
-
-	// Insert row into the table
-	Insert() error
-
-	// Update row in the table
-	Update() error
-
-	// Delete row from the table
-	Delete() error
 }
 
 type TelemetryDataCommon struct {
-	// private db settings
-	db     *sql.DB
-	table  string
-	exists *sql.Stmt
-	insert *sql.Stmt
-	update *sql.Stmt
-	delete *sql.Stmt
+	TableRowCommon
 
 	// public table fields
 	Id            int64  `json:"id"`
@@ -115,10 +87,17 @@ type TelemetryDataCommon struct {
 	TagSetId      int64  `json:"tagSetId"`
 }
 
-func (t *TelemetryDataCommon) SetupDB(db *sql.DB) {
+func (t *TelemetryDataCommon) SetupDB(db *DbConnection) (err error) {
 	// save DB reference
-	t.db = db
+	return t.TableRowCommon.SetupDB(db)
 }
+
+func (t *TelemetryDataCommon) TableName() string {
+	return t.TableRowCommon.TableName()
+}
+
+// verify that TelemetryDataCommom provides TableRowCommonHandler interfaces
+var _ TableRowCommonHandler = (*TableRowCommon)(nil)
 
 func (t *TelemetryDataCommon) Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) {
 	// init common telemetry data fields

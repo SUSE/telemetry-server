@@ -9,16 +9,39 @@ services:
       - 9999
     networks:
       - external
+      - internal
     ports:
       - "9999:9999"
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsg:9999/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 10
 
+  db:
+    image: telemetry/postgres
+    build:
+      context: postgres
+    restart: always
+    networks:
+      - internal
+    environment:
+      POSTGRES_PASSWORD: telemetry
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
 volumes:
   pgdata:
 
 networks:
   external: {}
+  internal: {}

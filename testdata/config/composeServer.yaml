@@ -5,6 +5,9 @@ dbs:
   telemetry:
     driver: sqlite3
     params: /tmp/telemetry/server/telemetry.db
+  operational:
+    driver: postgres
+    params: "postgres://postgres:telemetry@db:5432/operational"
   staging:
     driver: sqlite3
     params: /tmp/telemetry/server/staging.db

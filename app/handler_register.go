@@ -36,15 +36,21 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	ar.Log.Debug("Unmarshaled", slog.Any("crReq", &crReq))
 
 	// register the client
-	client := ClientsRow{ClientInstanceId: crReq.ClientInstanceId}
-	if client.Exists(a.OperationalDB.Conn) {
+	client := new(ClientsRow)
+	client.Init(&crReq)
+	if err = client.SetupDB(&a.OperationalDB); err != nil {
+		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
+		ar.ErrorResponse(http.StatusInternalServerError, "")
+		return
+	}
+	if client.Exists() {
 		ar.ErrorResponse(http.StatusConflict, "specified clientInstanceId already exists")
 		return
 	}
 
 	client.RegistrationDate = types.Now().String()
 	client.AuthToken = "sometoken"
-	err = client.Insert(a.OperationalDB.Conn)
+	err = client.Insert()
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to register new client")
 		return

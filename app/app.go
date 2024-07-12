@@ -124,9 +124,9 @@ func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
 	}
 
 	// setup databases
-	a.TelemetryDB.Setup(cfg.DataBases.Telemetry)
-	a.OperationalDB.Setup(cfg.DataBases.Staging)
-	a.StagingDB.Setup(cfg.DataBases.Staging)
+	a.TelemetryDB.Setup("Telemetry", cfg.DataBases.Telemetry)
+	a.OperationalDB.Setup("Operational", cfg.DataBases.Operational)
+	a.StagingDB.Setup("Staging", cfg.DataBases.Staging)
 
 	// setup telemetry transformations
 	a.Xformers = new(TelemetryRowXformMap)
@@ -185,7 +185,7 @@ func (a *App) Initialize() error {
 		return err
 	}
 
-	if err := a.OperationalDB.EnsureTablesExist(dbTablesOperational); err != nil {
+	if err := a.OperationalDB.EnsureTableSpecsExist(operationalTables); err != nil {
 		slog.Error("Operational DB tables setup failed", slog.String("error", err.Error()))
 		return err
 	}
@@ -207,7 +207,7 @@ func (a *App) Initialize() error {
 	}
 
 	// telemetry type specific transform setup
-	if err := a.Xformers.SetupDB(a.TelemetryDB.Conn); err != nil {
+	if err := a.Xformers.SetupDB(&a.TelemetryDB); err != nil {
 		slog.Error("Telemetry transformers setup failed", slog.String("error", err.Error()))
 		return err
 	}

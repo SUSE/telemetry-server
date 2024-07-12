@@ -1,0 +1,18 @@
+# docker container actions
+.PHONY: docker-build docker-start docker-run docker-ps docker-status docker-logs docker-stop
+
+# Start the telemetry-server using docker
+docker-build:
+	docker build -t telemetry-server .
+
+docker-start docker-run: docker-build
+	docker run --rm -it -d -p 9999:9999 --name telemetry-server telemetry-server
+
+docker-ps docker-status:
+	docker ps --filter name=\^telemetry-server\$
+
+docker-logs:
+	docker logs -n 100 telemetry-server
+
+docker-stop: docker-status
+	docker stop telemetry-server

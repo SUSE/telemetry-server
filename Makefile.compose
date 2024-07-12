@@ -1,0 +1,21 @@
+# docker compose actions
+.PHONY: compose-build compose-start compose-up compose-ps compose-status compose-logs compose-stop compose-down compse-clean
+
+# Start the telemetry-server using docker compose
+compose-build:
+	cd docker && docker compose build
+
+compose-start compose-up: compose-build
+	cd docker && docker compose up -d
+
+compose-ps compose-status:
+	cd docker && docker compose ps
+
+compose-logs:
+	cd docker && docker compose logs -n 100
+
+compose-stop compose-down: compose-status
+	cd docker && docker compose down
+
+compose-clean: compose-stop
+	docker volume rm docker_pgdata
