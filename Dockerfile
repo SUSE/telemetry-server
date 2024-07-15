@@ -22,8 +22,11 @@ COPY server/telemetry-server/go.mod ./telemetry-server/server/telemetry-server
 COPY server/telemetry-server/go.sum ./telemetry-server/server/telemetry-server
 RUN cd telemetry-server/server/telemetry-server; go mod download
 
-# Copy remaining code to dest directory
-COPY . ./telemetry-server
+# Copy over only the required contents to run make build
+COPY LICENSE Makefile* ./telemetry-server/
+COPY app ./telemetry-server/app/
+COPY server ./telemetry-server/server/
+COPY testdata ./telemetry-server/testdata/
 
 # Build the telemetry server
 RUN cd telemetry-server; make build

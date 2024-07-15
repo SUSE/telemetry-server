@@ -2,7 +2,7 @@ services:
   tsg:
     image: telemetry/server
     build:
-      context: telemetry-server
+      context: ..
       args:
         cfgFile: composeServer.yaml
     expose:
