@@ -14,12 +14,21 @@ import (
 func (a *App) ReportTelemetry(ar *AppRequest) {
 	ar.Log.Info("Processing")
 
+	token := ar.GetAuthToken()
+	if err := a.AuthManager.VerifyToken(token); err != nil {
+		// TODO: Set WWW-Authenticate header appropriately, per
+		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		ar.ErrorResponse(http.StatusUnauthorized, "Missing or Invalid Authorization")
+	}
+	ar.Log.Debug("Authorized", slog.String("token", token))
+
+	// TODO: Report has a valid token. It is from a registered client?
+
 	reader, err := ar.getReader()
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "Failed to decompress request body")
 		return
 	}
-
 	defer reader.Close()
 
 	// retrieve the request body

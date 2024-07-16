@@ -48,17 +48,35 @@ func (lc *LogConfig) String() string {
 	return string(str)
 }
 
+// default duration, in days of an auth token
+const DEF_AUTH_DURATION string = "1w"
+
+type AuthConfig struct {
+	// should not be printed
+	Secret string `yaml:"secret"`
+	// duration that tokens will be valid for
+	Duration string `yaml:"duration"`
+	// issuer name
+	Issuer string `yaml:"issuer"`
+}
+
+func (ac *AuthConfig) String() string {
+	return fmt.Sprintf("{Secret:%s Duration:%s Issuer:%s}", "********", ac.Duration, ac.Issuer)
+}
+
 type Config struct {
 	cfgPath string
 	API     APIConfig `yaml:"api"`
-	//DataStores config.DBConfig `yaml:"datastores"`
+	// database config settings
 	DataBases struct {
 		Telemetry   DBConfig `yaml:"telemetry"`
 		Operational DBConfig `yaml:"operational"`
 		Staging     DBConfig `yaml:"staging"`
-		//add other databases here
 	} `yaml:"dbs"`
+	// logging config settings
 	Logging LogConfig `yaml:"logging"`
+	// authentication config settings
+	Auth AuthConfig `yaml:"auth"`
 }
 
 func NewConfig(cfgFile string) *Config {
