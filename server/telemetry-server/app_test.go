@@ -28,10 +28,11 @@ import (
 
 type AppTestSuite struct {
 	suite.Suite
-	app    *app.App
-	config *app.Config
-	router *mux.Router
-	path   string
+	app       *app.App
+	config    *app.Config
+	router    *mux.Router
+	path      string
+	authToken string
 }
 
 // run before each test
@@ -61,6 +62,8 @@ dbs:
     params: %s/staging.db
 logging:
   level: debug
+auth:
+  secret: VGVzdGluZ1NlY3JldAo=
 `
 
 	formattedContents := fmt.Sprintf(content, s.path, s.path, s.path)
@@ -75,6 +78,7 @@ logging:
 	// Initialize your app and setup a router with debug mode enabled
 	s.app, s.router = InitializeApp(s.config, true)
 
+	s.authToken, _ = s.app.AuthManager.CreateToken()
 }
 
 func (s *AppTestSuite) TearDownTest() {
@@ -89,7 +93,7 @@ func (t *AppTestSuite) TestReportTelemetry() {
 
 	body := createReportPayload(t.T())
 
-	rr, err := postToReportTelemetryHandler(body, "", t)
+	rr, err := postToReportTelemetryHandler(body, "", true, t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 200, rr.Code)
@@ -115,7 +119,7 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadGZIP() {
 	cbody, err := compressedData([]byte(body), "gzip")
 	assert.NoError(t.T(), err)
 
-	rr, err := postToReportTelemetryHandler(string(cbody), "gzip", t)
+	rr, err := postToReportTelemetryHandler(string(cbody), "gzip", true, t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 200, rr.Code)
@@ -140,7 +144,7 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadDeflate() {
 	cbody, err := compressedData([]byte(body), "deflate")
 	assert.NoError(t.T(), err)
 
-	rr, err := postToReportTelemetryHandler(string(cbody), "deflate", t)
+	rr, err := postToReportTelemetryHandler(string(cbody), "deflate", true, t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 200, rr.Code)
@@ -181,11 +185,21 @@ func (t *AppTestSuite) TestReportTelemetryWithInvalidJSON() {
 	// Create a POST request with the necessary body
 	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":1,"buncleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
 
-	rr, err := postToReportTelemetryHandler(body, "", t)
+	rr, err := postToReportTelemetryHandler(body, "", true, t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 400, rr.Code)
 
+}
+
+func (t *AppTestSuite) TestReportTelemetryMissingAuth() {
+	// Create a POST request with the necessary body
+	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":1,"buncleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
+
+	rr, err := postToReportTelemetryHandler(body, "", false, t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 401, rr.Code)
 }
 
 func (t *AppTestSuite) TestRegisterClientWithInvalidJSON() {
@@ -203,7 +217,7 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyPayload() {
 	//Test the wrapper.reportTelemetry handler
 	// Create a POST request with the necessary body
 	body := `{}`
-	rr, err := postToReportTelemetryHandler(body, "", t)
+	rr, err := postToReportTelemetryHandler(body, "", true, t)
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 400, rr.Code)
@@ -249,7 +263,7 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyValues() {
 			//Test the wrapper.reportTelemetry handler
 			// Create a POST request with the necessary body
 
-			rr, err := postToReportTelemetryHandler(formattedBody, "", t)
+			rr, err := postToReportTelemetryHandler(formattedBody, "", true, t)
 			assert.NoError(t.T(), err)
 
 			if tt.shouldFail {
@@ -270,7 +284,7 @@ func (t *AppTestSuite) TestRegisterClientWithEmptyJSON() {
 	assert.Equal(t.T(), 400, rr.Code)
 }
 
-func postToReportTelemetryHandler(body string, compression string, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
+func postToReportTelemetryHandler(body string, compression string, auth bool, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
 	req, err := http.NewRequest("POST", "/telemetry/report", strings.NewReader(body))
 	assert.NoError(t.T(), err)
 
@@ -284,6 +298,9 @@ func postToReportTelemetryHandler(body string, compression string, t *AppTestSui
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if auth {
+		req.Header.Set("Authorization", "Bearer "+t.authToken)
+	}
 
 	// Record the response
 	rr := httptest.NewRecorder()

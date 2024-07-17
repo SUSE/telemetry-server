@@ -15,3 +15,6 @@ logging:
   level: info
   location: stderr
   style: text
+auth:
+  secret: VGVzdGluZ1NlY3JldAo=
+  duration: 1w

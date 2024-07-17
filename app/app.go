@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -45,6 +46,20 @@ func (ar *AppRequest) getReader() (io.ReadCloser, error) {
 		return ar.R.Body, nil
 	}
 
+}
+
+func (ar *AppRequest) GetHeader(header string) (value string) {
+	value = ar.R.Header.Get(header)
+	ar.Log.Debug("Request header", slog.String(header, value))
+	return
+}
+
+func (ar *AppRequest) GetAuthorization() string {
+	return ar.GetHeader("Authorization")
+}
+
+func (ar *AppRequest) GetAuthToken() string {
+	return strings.TrimPrefix(ar.GetAuthorization(), "Bearer ")
 }
 
 func (ar *AppRequest) SetHeader(header, value string) {
@@ -109,6 +124,7 @@ type App struct {
 	Handler       http.Handler
 	Xformers      TelemetryRowXformMapper
 	LogManager    *LogManager
+	AuthManager   *AuthManager
 }
 
 func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
@@ -135,6 +151,13 @@ func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
 
 	// setup address
 	a.Address.Setup(cfg.API)
+
+	// instantiate a new AuthManager based upon auth config settings
+	authManager, err := NewAuthManager(&cfg.Auth)
+	if err != nil {
+		panic(err)
+	}
+	a.AuthManager = authManager
 
 	return a
 }
