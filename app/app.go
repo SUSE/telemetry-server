@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/SUSE/telemetry/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -123,7 +124,7 @@ type App struct {
 	Address       ServerAddress
 	Handler       http.Handler
 	Xformers      TelemetryRowXformMapper
-	LogManager    *LogManager
+	LogManager    *logging.LogManager
 	AuthManager   *AuthManager
 }
 
@@ -165,7 +166,7 @@ func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
 func (a *App) SetupLogging() error {
 	logCfg := &a.Config.Logging
 
-	a.LogManager = NewLogManager()
+	a.LogManager = logging.NewLogManager()
 
 	if err := a.LogManager.Config(&a.Config.Logging); err != nil {
 		slog.Error("Failed to configure logging", slog.Any("config", logCfg), slog.String("error", err.Error()))

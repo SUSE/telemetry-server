@@ -1,12 +1,13 @@
 package app
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/SUSE/telemetry/pkg/config"
 )
 
 // Default server config path
@@ -37,17 +38,6 @@ func (d *DBConfig) Valid() error {
 	return nil
 }
 
-type LogConfig struct {
-	Level    string `yaml:"level" json:"level"`
-	Location string `yaml:"location" json:"location"`
-	Style    string `yaml:"style" json:"style"`
-}
-
-func (lc *LogConfig) String() string {
-	str, _ := json.Marshal(lc)
-	return string(str)
-}
-
 // default duration, in days of an auth token
 const DEF_AUTH_DURATION string = "1w"
 
@@ -74,7 +64,7 @@ type Config struct {
 		Staging     DBConfig `yaml:"staging"`
 	} `yaml:"dbs"`
 	// logging config settings
-	Logging LogConfig `yaml:"logging"`
+	Logging config.LogConfig `yaml:"logging"`
 	// authentication config settings
 	Auth AuthConfig `yaml:"auth"`
 }
