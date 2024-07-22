@@ -25,5 +25,6 @@ check-telemetry-cloned:
 	fi
 
 generate: server-healthy check-telemetry-cloned
+	mkdir -p /tmp/susetelemetry
 	cd ../telemetry/cmd/generator; \
 	go run . --config ../../testdata/config/localClient.yaml --telemetry=SLE-SERVER-SCCHwInfo --tag DEVTEST ../../testdata/telemetry/SLE-SERVER-SCCHwInfo/sle12sp5-test.json
