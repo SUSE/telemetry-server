@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/SUSE/telemetry-server/app"
+	"github.com/SUSE/telemetry/pkg/logging"
 	"github.com/gorilla/mux"
 )
 
@@ -66,7 +67,7 @@ func main() {
 	// setup basic logging that will later be superseded by the settings
 	// specified in the config file, providing some level of consistency
 	// for log messages generated before and after the config is loaded.
-	app.SetupBasicLogging(opts.Debug)
+	logging.SetupBasicLogging(opts.Debug)
 
 	slog.Debug("Preparing to start gorilla/mux based server", slog.Any("options", opts))
 
