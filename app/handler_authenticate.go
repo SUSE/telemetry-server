@@ -1,0 +1,91 @@
+package app
+
+import (
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+
+	"github.com/SUSE/telemetry/pkg/restapi"
+)
+
+// RegisterClient is responsible for handling client registrations
+func (a *App) AuthenticateClient(ar *AppRequest) {
+	ar.Log.Info("Processing", ar.R.Method, ar.R.URL)
+
+	// retrieve the request body
+	reqBody, err := io.ReadAll(ar.R.Body)
+	if err != nil {
+		ar.ErrorResponse(http.StatusBadRequest, err.Error())
+		return
+	}
+	ar.Log.Debug("Extracted", slog.Any("body", reqBody))
+
+	// unmarshal the request body to the request struct
+	var caReq restapi.ClientAuthenticationRequest
+	err = json.Unmarshal(reqBody, &caReq)
+	if err != nil {
+		ar.ErrorResponse(http.StatusBadRequest, err.Error())
+		return
+	}
+	if caReq.ClientId <= 0 {
+		ar.ErrorResponse(http.StatusBadRequest, "Invalid ClientId value provided")
+		return
+	}
+	ar.Log.Debug("Unmarshaled", slog.Any("caReq", &caReq))
+
+	// register the client
+	client := new(ClientsRow)
+	client.InitAuthentication(&caReq)
+	if err = client.SetupDB(&a.OperationalDB); err != nil {
+		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
+		return
+	}
+
+	// confirm that the client has been registered
+	if !client.Exists() {
+		// TODO: Set WWW-Authenticate header appropriately, per
+		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		ar.ErrorResponse(http.StatusUnauthorized, "Client not registered")
+		return
+	}
+
+	// confirm that the provided clientInstanceId SHA matches the registered on
+	instIdHash := client.ClientInstanceId.Hash(caReq.InstIdHash.Method)
+	if !instIdHash.Match(&caReq.InstIdHash) {
+		ar.Log.Error(
+			"ClientInstanceId hash mismatch",
+			slog.String("Req Hash", caReq.InstIdHash.String()),
+			slog.String("DB Hash", instIdHash.String()),
+		)
+		// TODO: Set WWW-Authenticate header appropriately, per
+		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		ar.ErrorResponse(http.StatusUnauthorized, "ClientInstanceId mismatch")
+		return
+	}
+
+	// create a new token for the client
+	client.AuthToken, err = a.AuthManager.CreateToken()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to create new authtoken for client")
+	}
+
+	// update token stored in the DB
+	err = client.Update()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to client authtoken")
+		return
+	}
+
+	// initialise a client registration response
+	caResp := restapi.ClientAuthenticationResponse{
+		ClientId:  client.Id,
+		AuthToken: client.AuthToken,
+		IssueDate: client.RegistrationDate,
+	}
+	ar.Log.Debug("Response", slog.Any("caResp", caResp))
+
+	// respond success with the client registration response
+	ar.JsonResponse(http.StatusOK, caResp)
+}

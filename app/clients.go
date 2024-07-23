@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/SUSE/telemetry/pkg/restapi"
+	"github.com/SUSE/telemetry/pkg/types"
 )
 
 var clientsTableSpec = TableSpec{
@@ -22,14 +23,29 @@ type ClientsRow struct {
 	// include common table row fields
 	TableRowCommon
 
-	Id               int64  `json:"id"`
-	ClientInstanceId string `json:"clientInstanceId"`
-	RegistrationDate string `json:"registrationDate"`
-	AuthToken        string `json:"authToken"`
+	// table specific query handlers
+	instIdExists *sql.Stmt
+
+	Id               int64                  `json:"id"`
+	ClientInstanceId types.ClientInstanceId `json:"clientInstanceId"`
+	RegistrationDate string                 `json:"registrationDate"`
+	AuthToken        string                 `json:"authToken"`
 }
 
-func (c *ClientsRow) Init(crReq *restapi.ClientRegistrationRequest) {
-	c.ClientInstanceId = crReq.ClientInstanceId
+func (c *ClientsRow) InitAuthentication(caReq *restapi.ClientAuthenticationRequest) {
+	c.InitClientId(caReq.ClientId)
+}
+
+func (c *ClientsRow) InitClientId(clientId int64) {
+	c.Id = clientId
+}
+
+func (c *ClientsRow) InitRegistration(crReq *restapi.ClientRegistrationRequest) {
+	c.InitClientInstanceId(&crReq.ClientInstanceId)
+}
+
+func (c *ClientsRow) InitClientInstanceId(instId *types.ClientInstanceId) {
+	c.ClientInstanceId = *instId
 }
 
 func (c *ClientsRow) TableName() string {
@@ -56,7 +72,28 @@ func (c *ClientsRow) SetupDB(db *DbConnection) (err error) {
 	var ph Placeholder
 	var stmt string
 
-	// prepare exists check statement
+	// prepare clientId exists check statement
+	ph = c.db.Placeholder(1)
+	stmt = `SELECT ` +
+		c.tableSpec.Columns[1].Name + `, ` +
+		c.tableSpec.Columns[2].Name + `, ` +
+		c.tableSpec.Columns[3].Name +
+		` FROM ` + c.TableName() +
+		` WHERE ` +
+		c.tableSpec.Columns[0].Name + ` = ` + ph.Next()
+
+	c.exists, err = c.db.Conn.Prepare(stmt)
+	if err != nil {
+		slog.Error(
+			"exists statement prep failed",
+			slog.String("table", c.TableName()),
+			slog.String("statement", stmt),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	// prepare clientInstanceId exists check statement
 	ph = c.db.Placeholder(1)
 	stmt = `SELECT ` +
 		c.tableSpec.Columns[0].Name + `, ` +
@@ -66,7 +103,7 @@ func (c *ClientsRow) SetupDB(db *DbConnection) (err error) {
 		` WHERE ` +
 		c.tableSpec.Columns[1].Name + ` = ` + ph.Next()
 
-	c.exists, err = c.db.Conn.Prepare(stmt)
+	c.instIdExists, err = c.db.Conn.Prepare(stmt)
 	if err != nil {
 		slog.Error(
 			"exists statement prep failed",
@@ -138,7 +175,29 @@ func (c *ClientsRow) SetupDB(db *DbConnection) (err error) {
 }
 
 func (c *ClientsRow) Exists() bool {
-	row := c.exists.QueryRow(c.ClientInstanceId)
+	row := c.exists.QueryRow(c.Id)
+	// if the entry was found, all fields not used to find the entry will have
+	// been updated to match what is in the DB
+	if err := row.Scan(
+		&c.ClientInstanceId,
+		&c.RegistrationDate,
+		&c.AuthToken,
+	); err != nil {
+		if err != sql.ErrNoRows {
+			slog.Error(
+				"check for matching entry failed",
+				slog.String("table", c.TableName()),
+				slog.String("clientInstanceId", c.ClientInstanceId.String()),
+				slog.String("error", err.Error()),
+			)
+		}
+		return false
+	}
+	return true
+}
+
+func (c *ClientsRow) InstIdExists() bool {
+	row := c.instIdExists.QueryRow(c.ClientInstanceId)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -150,7 +209,7 @@ func (c *ClientsRow) Exists() bool {
 			slog.Error(
 				"check for matching entry failed",
 				slog.String("table", c.TableName()),
-				slog.String("clientInstanceId", c.ClientInstanceId),
+				slog.String("clientInstanceId", c.ClientInstanceId.String()),
 				slog.String("error", err.Error()),
 			)
 		}

@@ -7,7 +7,7 @@ replace github.com/SUSE/telemetry => ../telemetry/
 replace github.com/SUSE/telemetry-server => ../telemetry-server/
 
 require (
-	github.com/SUSE/telemetry v0.0.0-20240613193912-dad2f1cdf2a9
+	github.com/SUSE/telemetry v0.0.0-20240722191415-be124bb71e5b
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.6.0

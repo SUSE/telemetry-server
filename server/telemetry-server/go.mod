@@ -27,7 +27,7 @@ require (
 )
 
 require (
-	github.com/SUSE/telemetry v0.0.0-20240613193912-dad2f1cdf2a9
+	github.com/SUSE/telemetry v0.0.0-20240722191415-be124bb71e5b
 	github.com/SUSE/telemetry-server v0.0.0-20240614161816-bafbd5826391
 )
 
