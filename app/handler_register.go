@@ -29,7 +29,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	if crReq.ClientInstanceId == "" {
+	if string(crReq.ClientInstanceId) == "" {
 		ar.ErrorResponse(http.StatusBadRequest, "no ClientInstanceId value provided")
 		return
 	}
@@ -37,13 +37,13 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	// register the client
 	client := new(ClientsRow)
-	client.Init(&crReq)
+	client.InitRegistration(&crReq)
 	if err = client.SetupDB(&a.OperationalDB); err != nil {
 		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
-		ar.ErrorResponse(http.StatusInternalServerError, "")
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
 		return
 	}
-	if client.Exists() {
+	if client.InstIdExists() {
 		ar.ErrorResponse(http.StatusConflict, "specified clientInstanceId already exists")
 		return
 	}

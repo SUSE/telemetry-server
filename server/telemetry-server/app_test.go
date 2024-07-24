@@ -28,11 +28,14 @@ import (
 
 type AppTestSuite struct {
 	suite.Suite
-	app       *app.App
-	config    *app.Config
-	router    *mux.Router
-	path      string
-	authToken string
+	app              *app.App
+	config           *app.Config
+	router           *mux.Router
+	path             string
+	authToken        string
+	clientInstanceId types.ClientInstanceId
+	clientInstIdHash types.ClientInstanceIdHash
+	clientId         int64
 }
 
 // run before each test
@@ -78,7 +81,27 @@ auth:
 	// Initialize your app and setup a router with debug mode enabled
 	s.app, s.router = InitializeApp(s.config, true)
 
+	// setup the client entry in the clients table
 	s.authToken, _ = s.app.AuthManager.CreateToken()
+	s.clientInstanceId = `PQR0123456789`
+	s.clientInstIdHash = types.ClientInstanceIdHash{
+		Method: "sha256",
+		Value:  "279b3ce1c73f3598ee36cde0a38fa6687aa33f50935a8b10a0a6608d3084d22a",
+	}
+	row := s.app.OperationalDB.Conn.QueryRow(
+		`INSERT INTO clients(`+
+			`clientInstanceId, `+
+			`registrationDate, `+
+			`authToken) `+
+			`VALUES(?, ?, ?) `+
+			`RETURNING id`,
+		string(s.clientInstanceId),
+		"2024-07-01T00:00:00.000000000Z",
+		s.authToken,
+	)
+	if err := row.Scan(&s.clientId); err != nil {
+		panic(fmt.Errorf("failed to setup test client entry in clients table: %s", err.Error()))
+	}
 }
 
 func (s *AppTestSuite) TearDownTest() {
@@ -181,6 +204,28 @@ func (t *AppTestSuite) TestRegisterClient() {
 
 }
 
+func (t *AppTestSuite) TestAuthenticateClient() {
+	//Test the wrapper.autenticateClient handler
+
+	// Create a POST request with the necessary body
+	body := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
+	formattedBody := fmt.Sprintf(
+		body, t.clientId, t.clientInstIdHash.Method, t.clientInstIdHash.Value)
+
+	rr, err := postToAuthenticateClientHandler(formattedBody, t)
+	assert.NoError(t.T(), err)
+	assert.Equal(t.T(), 200, rr.Code)
+
+	//Validate the response has these attributes
+	substrings := []string{"clientId", "authToken", "issueDate"}
+	for _, substring := range substrings {
+		if !strings.Contains(rr.Body.String(), substring) {
+			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
+		}
+	}
+
+}
+
 func (t *AppTestSuite) TestReportTelemetryWithInvalidJSON() {
 	// Create a POST request with the necessary body
 	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":1,"buncleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
@@ -210,6 +255,56 @@ func (t *AppTestSuite) TestRegisterClientWithInvalidJSON() {
 	assert.NoError(t.T(), err)
 
 	assert.Equal(t.T(), 400, rr.Code)
+
+}
+
+func (t *AppTestSuite) TestAuthenticateClientWithInvalidJSON() {
+	// Create a POST request with the necessary body
+	body := `{"clientId":}`
+
+	rr, err := postToAuthenticateClientHandler(body, t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 400, rr.Code)
+
+}
+
+func (t *AppTestSuite) TestAuthenticateClientWithInvalidClientId() {
+	// Create a POST request with the necessary body
+	bodyfmt := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
+	body := fmt.Sprintf(
+		bodyfmt, -1, t.clientInstIdHash.Method, t.clientInstIdHash.Value)
+
+	rr, err := postToAuthenticateClientHandler(body, t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 400, rr.Code)
+
+}
+
+func (t *AppTestSuite) TestAuthenticateClientWithUnregisteredClientId() {
+	// Create a POST request with the necessary body
+	bodyfmt := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
+	body := fmt.Sprintf(
+		bodyfmt, t.clientId+1, t.clientInstIdHash.Method, t.clientInstIdHash.Value)
+
+	rr, err := postToAuthenticateClientHandler(body, t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 401, rr.Code)
+
+}
+
+func (t *AppTestSuite) TestAuthenticateClientWithInvalidInstIdHash() {
+	// Create a POST request with the necessary body
+	bodyfmt := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
+	body := fmt.Sprintf(
+		bodyfmt, t.clientId+1, "sha512", t.clientInstIdHash.Value)
+
+	rr, err := postToAuthenticateClientHandler(body, t)
+	assert.NoError(t.T(), err)
+
+	assert.Equal(t.T(), 401, rr.Code)
 
 }
 
@@ -284,6 +379,14 @@ func (t *AppTestSuite) TestRegisterClientWithEmptyJSON() {
 	assert.Equal(t.T(), 400, rr.Code)
 }
 
+func (t *AppTestSuite) TestAuthenticateClientWithEmptyJSON() {
+	// Create a POST request with the necessary body
+	body := `{}`
+	rr, err := postToAuthenticateClientHandler(body, t)
+	assert.NoError(t.T(), err)
+	assert.Equal(t.T(), 400, rr.Code)
+}
+
 func postToReportTelemetryHandler(body string, compression string, auth bool, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
 	req, err := http.NewRequest("POST", "/telemetry/report", strings.NewReader(body))
 	assert.NoError(t.T(), err)
@@ -301,6 +404,7 @@ func postToReportTelemetryHandler(body string, compression string, auth bool, t 
 	if auth {
 		req.Header.Set("Authorization", "Bearer "+t.authToken)
 	}
+	req.Header.Set("X-Telemetry-Client-Id", fmt.Sprintf("%d", t.clientId))
 
 	// Record the response
 	rr := httptest.NewRecorder()
@@ -313,6 +417,20 @@ func postToReportTelemetryHandler(body string, compression string, auth bool, t 
 
 func postToRegisterClientHandler(body string, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
 	req, err := http.NewRequest("POST", "/telemetry/register", strings.NewReader(body))
+	assert.NoError(t.T(), err)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Record the response
+	rr := httptest.NewRecorder()
+
+	t.router.ServeHTTP(rr, req)
+
+	return rr, err
+
+}
+
+func postToAuthenticateClientHandler(body string, t *AppTestSuite) (*httptest.ResponseRecorder, error) {
+	req, err := http.NewRequest("POST", "/telemetry/authenticate", strings.NewReader(body))
 	assert.NoError(t.T(), err)
 	req.Header.Set("Content-Type", "application/json")
 

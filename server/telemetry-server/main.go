@@ -35,6 +35,10 @@ func newAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
 	}
 }
 
+func (rw *routerWrapper) authenticateClient(w http.ResponseWriter, r *http.Request) {
+	rw.app.AuthenticateClient(newAppRequest(w, r))
+}
+
 func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
 	rw.app.RegisterClient(newAppRequest(w, r))
 }
@@ -96,6 +100,7 @@ func parseCommandLineFlags() {
 func SetupRouterWrapper(router *mux.Router, app *app.App) {
 	wrapper := newRouterWrapper(router, app)
 
+	router.HandleFunc("/telemetry/authenticate", wrapper.authenticateClient).Methods("POST")
 	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
 	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
 	router.HandleFunc("/healthz", wrapper.healthCheck).Methods("GET", "HEAD")
