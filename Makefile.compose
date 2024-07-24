@@ -1,9 +1,12 @@
 # docker compose actions
+
+PG_DOCKER_VOLUME = docker_pgdata
+
 .PHONY: compose-build compose-start compose-up compose-ps compose-status compose-logs compose-stop compose-down compse-clean
 
 # Start the telemetry-server using docker compose
-compose-build:
-	cd docker && docker compose build
+compose-build: vet
+	cd docker && docker compose build --build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH)
 
 compose-start compose-up: compose-build
 	cd docker && docker compose up -d
@@ -17,5 +20,8 @@ compose-logs:
 compose-stop compose-down: compose-status
 	cd docker && docker compose down
 
-compose-clean: compose-stop
-	docker volume rm docker_pgdata
+compose-clean: compose-stop docker-clean
+	@if docker volume inspect $(PG_DOCKER_VOLUME) >/dev/null 2>&1; then \
+		echo removing docker volume $(PG_DOCKER_VOLUME); \
+		docker volume rm $(PG_DOCKER_VOLUME); \
+	fi

@@ -2,8 +2,8 @@
 .PHONY: docker-build docker-start docker-run docker-ps docker-status docker-logs docker-stop
 
 # Start the telemetry-server using docker
-docker-build:
-	docker build -t telemetry-server .
+docker-build: vet
+	docker build -t telemetry-server . --build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH)
 
 docker-start docker-run: docker-build
 	docker run --rm -it -d -p 9999:9999 --name telemetry-server telemetry-server
@@ -16,3 +16,6 @@ docker-logs:
 
 docker-stop: docker-status
 	docker stop telemetry-server
+
+docker-clean:
+	docker buildx prune -f --filter="until=24h"

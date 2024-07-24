@@ -1,3 +1,5 @@
+TELEMETRY_REPO_BRANCH = main
+
 include Makefile.compose
 include Makefile.docker
 include Makefile.generate
@@ -8,7 +10,7 @@ SUBDIRS = \
   app \
   server/telemetry-server
 
-TARGETS = fmt vet build clean test test-verbose
+TARGETS = fmt vet build build-only clean test test-verbose
 
 .PHONY: $(TARGETS)
 
