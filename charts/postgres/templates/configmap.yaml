@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  POSTGRES_DB: operational
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: telemetry
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  init.sql: |
+    -- Create the telemetry user
+    CREATE USER telemetry;
+
+    -- Create staging database and grant telemetry user access
+    CREATE DATABASE staging WITH TEMPLATE template0;
+    GRANT ALL PRIVILEGES ON DATABASE staging TO telemetry;
+
+    -- Create operational database and grant telemetry user access
+    CREATE DATABASE operational WITH TEMPLATE template0;
+    GRANT ALL PRIVILEGES ON DATABASE operational TO telemetry;
+
+    -- Create telemetry database and grant telemetry user access
+    CREATE DATABASE telemetry WITH TEMPLATE template0;
+    GRANT ALL PRIVILEGES ON DATABASE telemetry TO telemetry;
