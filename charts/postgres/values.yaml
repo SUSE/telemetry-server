@@ -56,14 +56,14 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+# TODO: this must be passed in as envs within CI/CD
+postgres:
+  db: operational
+  user: postgres
+  password: telemetry
+
 # OpenPlatform
 # postgres:
-#   image: postgres:16
-#   containerName: telemetry-server-postgres
-#   database: telemetry-db
-#   username: telemetry
-#   password: supersecretpassword
-#   port: 5432
 #   persistence:
 #     enabled: true
 #     storageClass: ebs
