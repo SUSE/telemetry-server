@@ -1,13 +1,15 @@
 FROM registry.suse.com/bci/golang:1.21-openssl AS builder
 
-RUN set -euo pipefail; zypper -n  in --no-recommends git make ; zypper -n clean;
+RUN set -euo pipefail; zypper -n in --no-recommends git make ; zypper -n clean;
 
 # Create a temporary workspace
 WORKDIR /var/cache
 
 # For now, we need this since we use replace directive to point to the local telemetry module in go.mod
-RUN git clone https://github.com/SUSE/telemetry
-RUN cd telemetry; make build
+ARG telemetryRepoBranch=main
+ADD https://api.github.com/repos/SUSE/telemetry/git/refs/heads/$telemetryRepoBranch telemetry_repo_branch.json
+RUN git clone -b $telemetryRepoBranch https://github.com/SUSE/telemetry
+RUN cd telemetry; go mod download -x
 
 # Create dest directory for local code
 RUN mkdir -p ./telemetry-server/server/telemetry-server
@@ -15,12 +17,12 @@ RUN mkdir -p ./telemetry-server/server/telemetry-server
 # Copy main go.mod and go.sum to dest directory and run go mod download
 COPY go.mod ./telemetry-server
 COPY go.sum ./telemetry-server
-RUN cd telemetry-server; go mod download
+RUN cd telemetry-server; go mod download -x
 
 # Copy main go.mod and go.sum to dest directory and run go mod download
 COPY server/telemetry-server/go.mod ./telemetry-server/server/telemetry-server
 COPY server/telemetry-server/go.sum ./telemetry-server/server/telemetry-server
-RUN cd telemetry-server/server/telemetry-server; go mod download
+RUN cd telemetry-server/server/telemetry-server; go mod download -x
 
 # Copy over only the required contents to run make build
 COPY LICENSE Makefile* ./telemetry-server/
@@ -29,7 +31,7 @@ COPY server ./telemetry-server/server/
 COPY testdata ./telemetry-server/testdata/
 
 # Build the telemetry server
-RUN cd telemetry-server; make build
+RUN cd telemetry-server; GOFLAGS=-v make build-only
 
 # Final Image: Start a new build stage with bci-base image as the base and
 # copy the built artifacts from the previous stage into this new stage.
