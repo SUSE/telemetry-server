@@ -139,7 +139,7 @@ config:
       driver: sqlite3
       params: /tmp/telemetry/server/staging.db
   logging:
-    level: debug
+    level: info
     location: stderr
     style: text
   # This is for testing purposes only

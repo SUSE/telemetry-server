@@ -1,0 +1,54 @@
+replicaCount: 1
+
+# A valid image tag must be provided for the desired postgres version
+image:
+  repository: postgres
+  pullPolicy: IfNotPresent
+  tag: "16"
+
+podAnnotations: {}
+podLabels: {}
+
+service:
+  port: 5432
+  type: ClusterIP
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 500m
+    memory: 256Mi
+
+volumes:
+- name: postgredb
+  persistentVolumeClaim:
+    claimName: postgres-pv-claim
+
+volumeMounts:
+- mountPath: /var/lib/postgresql/data
+  name: postgredb
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# TODO: this must be passed in as envs within CI/CD
+postgres:
+  db: operational
+  user: postgres
+  password: telemetry
+
+# OpenPlatform
+# postgres:
+#   persistence:
+#     enabled: true
+#     storageClass: ebs
+#     accessMode: ReadWriteOnce
+#     size: 10Mi
+#   volumeMounts:
+#   - name: postgres-pvc
+#     mountPath: /var/lib/postgresql/telemetry-server-data
