@@ -21,7 +21,7 @@ if [ -x "$kubectl_path" ]; then
     # Backup the existing kubeconfig file if it exists
     if [ -f ~/.kube/config ]; then
         KUBECONFIG_BACKUP=~/.kube/config.backup
-        cp ~/.kube/config $KUBECONFIG_BACKUP
+        cp -p ~/.kube/config $KUBECONFIG_BACKUP
         echo "Existing kubeconfig backed up to $KUBECONFIG_BACKUP"
     fi
 
