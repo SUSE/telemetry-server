@@ -1,23 +1,25 @@
+ifeq ($(MAKELEVEL),0)
+
 TELEMETRY_REPO_BRANCH = main
 
 include Makefile.compose
 include Makefile.docker
 include Makefile.generate
+include Makefile.e2e
 
 .DEFAULT_GOAL := build
 
 SUBDIRS = \
+  . \
   app \
   server/telemetry-server
 
-TARGETS = fmt vet build build-only clean test test-verbose
+TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
 
 .PHONY: $(TARGETS)
 
 $(TARGETS):
 	$(foreach subdir, $(SUBDIRS), $(MAKE) -C $(subdir) $@;)
-
-
-.PHONY: end-to-end e2e
-
-end-to-end e2e: compose-start generate compose-stop
+else
+include Makefile.golang
+endif
