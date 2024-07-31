@@ -25,3 +25,5 @@ compose-clean: compose-stop docker-clean
 		echo removing docker volume $(PG_DOCKER_VOLUME); \
 		docker volume rm $(PG_DOCKER_VOLUME); \
 	fi
+
+clean: compose-clean

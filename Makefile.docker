@@ -19,3 +19,5 @@ docker-stop: docker-status
 
 docker-clean:
 	docker buildx prune -f --filter="until=24h"
+
+clean: docker-clean

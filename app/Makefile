@@ -1,1 +1,1 @@
-include ../Makefile.subdir
+include ../Makefile.golang
