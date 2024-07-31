@@ -27,7 +27,7 @@ if [ -x "$kubectl_path" ]; then
 
     # Merge kubeconfig files
     env KUBECONFIG=~/.kube/config:$K3S_KUBECONFIG kubectl config view --merge --flatten > /tmp/config
-    mv /tmp/config ~/.kube/config
+    cat /tmp/config > ~/.kube/config && rm /tmp/config
     kubectl config rename-context default k3s
     echo "kubeconfig files merged successfully"
 else
