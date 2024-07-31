@@ -1,33 +1,35 @@
 #!/bin/bash
 
 # Check k3s installation
-k3s_path=$(which k3s)
-if [ -x "$k3s_path" ]; then
+K3S_PATH=$(which k3s)
+if [ -x "$K3S_PATH" ]; then
     echo "k3s is already installed"
     exit 0
 fi
 
 # Install k3s
-$ curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -s -
+curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -s -
 
 K3S_KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+DEFAULT_KUBECONFIG=~/.kube/config
+TMP_KUBECONFIG=~/.kube/config.k3s_merge
 
 # Check if kubectl is installed
 echo "Checking if kubectl is in PATH..."
-kubectl_path=$(which kubectl)
-if [ -x "$kubectl_path" ]; then
+KUBECTL_PATH=$(which kubectl)
+if [ -x "$KUBECTL_PATH" ]; then
     echo "kubectl is installed, merging kubeconfig files..."
     
     # Backup the existing kubeconfig file if it exists
-    if [ -f ~/.kube/config ]; then
-        KUBECONFIG_BACKUP=~/.kube/config.backup
-        cp -p ~/.kube/config $KUBECONFIG_BACKUP
+    if [ -f $DEFAULT_KUBECONFIG ]; then
+        KUBECONFIG_BACKUP=$DEFAULT_KUBECONFIG.backup
+        cp -p $DEFAULT_KUBECONFIG $KUBECONFIG_BACKUP
         echo "Existing kubeconfig backed up to $KUBECONFIG_BACKUP"
     fi
 
     # Merge kubeconfig files
-    env KUBECONFIG=~/.kube/config:$K3S_KUBECONFIG kubectl config view --merge --flatten > /tmp/config
-    cat /tmp/config > ~/.kube/config && rm /tmp/config
+    env KUBECONFIG=$DEFAULT_KUBECONFIG:$K3S_KUBECONFIG kubectl config view --merge --flatten > $TMP_KUBECONFIG
+    cat $TMP_KUBECONFIG > $DEFAULT_KUBECONFIG && rm $TMP_KUBECONFIG
     kubectl config rename-context default k3s
     echo "kubeconfig files merged successfully"
 else
