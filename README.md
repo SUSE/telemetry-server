@@ -10,6 +10,11 @@ under the same directory:
 The telemetry-server can be run locally or via a docker container, using
 either docker compose or docker run directly.
 
+There is also a telematry-admin which can be started locally, or via a
+docker container, either using docker compose or docker directly.
+However the telemetry-admin server doesn't provide any functionality
+yet, as the administrative interfaces are still being defined.
+
 ## Starting the telemetry-server locally
 In a terminal session you can cd to the telemetry-server/server/telemetry-server
 directory and run the server as follows:
@@ -34,11 +39,11 @@ Build the required images:
 
 ```
 % make compose-build
-cd docker && docker compose build
-[+] Building 14.1s (40/40) FINISHED                              docker:default
+make -C . vet;  make -C app vet;  make -C server/telemetry-server vet;  make -C server/telemetry-admin vet;
+...
+cd docker && docker compose build --build-arg telemetryRepoBranch=main
+[+] Building 65.2s (73/73) FINISHED                              docker:default
  => [db internal] load build definition from Dockerfile                    0.0s
- => => transferring dockerfile: 231B                                       0.0s
- => [db internal] load metadata for docker.io/library/postgres:16          0.0s
 ...
  => CACHED [tsg stage-1 13/13] RUN chmod 700 /app/entrypoint.bash          0.0s
  => [tsg] exporting to image                                               0.0s
@@ -51,28 +56,31 @@ Start the telemetry-server in the background:
 
 ```
 % make compose-start
+...
 cd docker && docker compose build
-[+] Building 1.7s (40/40) FINISHED                               docker:default
+[+] Building 1.9s (73/73) FINISHED                               docker:default
  => [db internal] load build definition from Dockerfile                    0.0s
 ...
  => => naming to docker.io/telemetry/server                                0.0s
 cd docker && docker compose up -d
-[+] Running 5/5
+[+] Running 6/6
  ✔ Network docker_internal  Created                                        0.1s
  ✔ Network docker_external  Created                                        0.2s
  ✔ Volume "docker_pgdata"   Created                                        0.0s
- ✔ Container docker-db-1    Healthy                                        3.0s
- ✔ Container docker-tsg-1   Started                                        3.3s
+ ✔ Container docker-db-1    Healthy                                        2.9s
+ ✔ Container docker-tsa-1   Healthy                                        2.9s
+ ✔ Container docker-tsg-1   Started                                        8.4s
 ```
 
-Check the status of the telemetry-server container:
+Check the status of the telemetry services:
 
 ```
 % make compose-status
 cd docker && docker compose ps
 NAME           IMAGE                COMMAND                  SERVICE   CREATED              STATUS                        PORTS
-docker-db-1    telemetry/postgres   "docker-entrypoint.s…"   db        About a minute ago   Up About a minute (healthy)   5432/tcp
-docker-tsg-1   telemetry/server     "/app/entrypoint.bas…"   tsg       About a minute ago   Up About a minute (healthy)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp
+docker-db-1    telemetry/postgres   "docker-entrypoint.s…"   db        2 minutes ago   Up 2 minutes (healthy)        5432/tcp
+docker-tsa-1   telemetry/admin      "/app/entrypoint.bas…"   tsa       2 minutes ago   Up 2 minutes (healthy)        0.0.0.0:9998->9998/tcp, :::9998->9998/tcp
+docker-tsg-1   telemetry/server     "/app/entrypoint.bas…"   tsg       2 minutes ago   Up About a minute (healthy)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp
 ```
 
 Check the logs for the telemetry-server:
@@ -80,20 +88,21 @@ Check the logs for the telemetry-server:
 ```
 % make compose-logs
 cd docker && docker compose logs -n 100
-db-1   | 2024-07-12 12:25:49.282 UTC [1] LOG:  starting PostgreSQL 16.3 (Debian 16.3-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
-db-1   | 2024-07-12 12:25:49.282 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
-db-1   | 2024-07-12 12:25:49.282 UTC [1] LOG:  listening on IPv6 address "::", port 5432
-db-1   | 2024-07-12 12:25:49.285 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
-db-1   | 2024-07-12 12:25:49.291 UTC [72] LOG:  database system was shut down at 2024-07-12 12:25:49 UTC
-db-1   | 2024-07-12 12:25:49.299 UTC [1] LOG:  database system is ready to accept connections
-tsg-1  | time=2024-07-12T12:25:50.928Z level=INFO msg="Logging initialised" level=INFO dest=stderr style=TEXT
-tsg-1  | time=2024-07-12T12:25:50.929Z level=INFO msg="Logging initialised" level=INFO dest=stderr style=TEXT
-tsg-1  | time=2024-07-12T12:25:50.929Z level=INFO msg="Database Connected" database=Staging
-tsg-1  | time=2024-07-12T12:25:50.933Z level=INFO msg="Database Connected" database=Operational
-tsg-1  | time=2024-07-12T12:25:50.957Z level=INFO msg="Database Connected" database=Telemetry
-tsg-1  | time=2024-07-12T12:25:50.971Z level=INFO msg="Starting Telemetry Server" listenOn=tsg:9999
-tsg-1  | time=2024-07-12T12:26:20.518Z level=INFO msg=Processing method=GET URL=/healthz
-tsg-1  | time=2024-07-12T12:26:20.518Z level=INFO msg=Response method=GET URL=/healthz code=200
+...
+db-1   | 2024-08-01 14:19:45.222 UTC [1] LOG:  starting PostgreSQL 16.3 (Debian 16.3-1.pgdg120+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14) 12.2.0, 64-bit
+db-1   | 2024-08-01 14:19:45.222 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+db-1   | 2024-08-01 14:19:45.222 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+db-1   | 2024-08-01 14:19:45.224 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+db-1   | 2024-08-01 14:19:45.230 UTC [72] LOG:  database system was shut down at 2024-08-01 14:19:45 UTC
+db-1   | 2024-08-01 14:19:45.236 UTC [1] LOG:  database system is ready to accept connections
+tsa-1  | time=2024-08-01T14:19:46.002Z level=INFO msg="Database Connected" database=Staging
+tsa-1  | time=2024-08-01T14:19:46.005Z level=INFO msg="Database Connected" database=Operational
+tsa-1  | time=2024-08-01T14:19:46.030Z level=INFO msg="Database Connected" database=Telemetry
+tsa-1  | time=2024-08-01T14:19:46.041Z level=INFO msg="Starting Telemetry Admin" listenOn=tsa:9998
+tsg-1  | time=2024-08-01T14:19:52.043Z level=INFO msg="Database Connected" database=Staging
+tsg-1  | time=2024-08-01T14:19:52.047Z level=INFO msg="Database Connected" database=Operational
+tsg-1  | time=2024-08-01T14:19:52.061Z level=INFO msg="Database Connected" database=Telemetry
+tsg-1  | time=2024-08-01T14:19:52.069Z level=INFO msg="Starting Telemetry Server" listenOn=tsg:9999
 ```
 
 Stop the running telemetry-server:
@@ -102,14 +111,16 @@ Stop the running telemetry-server:
 % make compose-stop
 cd docker && docker compose ps
 NAME           IMAGE                COMMAND                  SERVICE   CREATED         STATUS                   PORTS
-docker-db-1    telemetry/postgres   "docker-entrypoint.s…"   db        4 minutes ago   Up 4 minutes (healthy)   5432/tcp
-docker-tsg-1   telemetry/server     "/app/entrypoint.bas…"   tsg       4 minutes ago   Up 4 minutes (healthy)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp
+docker-db-1    telemetry/postgres   "docker-entrypoint.s…"   db        5 minutes ago   Up 5 minutes (healthy)   5432/tcp
+docker-tsa-1   telemetry/admin      "/app/entrypoint.bas…"   tsa       5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:9998->9998/tcp, :::9998->9998/tcp
+docker-tsg-1   telemetry/server     "/app/entrypoint.bas…"   tsg       5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp
 cd docker && docker compose down
-[+] Running 4/4
- ✔ Container docker-tsg-1   Removed                                       10.7s
- ✔ Container docker-db-1    Removed                                        0.3s
- ✔ Network docker_internal  Removed                                        0.4s
- ✔ Network docker_external  Removed                                        0.8s
+[+] Running 5/5
+ ✔ Container docker-tsg-1   Removed                                                                                               10.6s 
+ ✔ Container docker-tsa-1   Removed                                                                                               10.7s 
+ ✔ Container docker-db-1    Removed                                                                                                0.3s 
+ ✔ Network docker_external  Removed                                                                                                1.0s 
+ ✔ Network docker_internal  Removed                                                                                                0.5s 
 ```
 
 ## Starting the telemetry server with docker run

@@ -26,15 +26,6 @@ func reqLogger(r *http.Request) *slog.Logger {
 	return slog.Default().With(slog.String("method", r.Method), slog.Any("URL", r.URL))
 }
 
-func newAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
-	return &app.AppRequest{
-		W:    w,
-		R:    r,
-		Vars: mux.Vars(r),
-		Log:  reqLogger(r),
-	}
-}
-
 func quietAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
 	return &app.AppRequest{
 		W:     w,
@@ -43,18 +34,6 @@ func quietAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
 		Log:   reqLogger(r),
 		Quiet: true,
 	}
-}
-
-func (rw *routerWrapper) authenticateClient(w http.ResponseWriter, r *http.Request) {
-	rw.app.AuthenticateClient(newAppRequest(w, r))
-}
-
-func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
-	rw.app.RegisterClient(newAppRequest(w, r))
-}
-
-func (rw *routerWrapper) reportTelemetry(w http.ResponseWriter, r *http.Request) {
-	rw.app.ReportTelemetry(newAppRequest(w, r))
 }
 
 func (rw *routerWrapper) healthCheck(w http.ResponseWriter, r *http.Request) {
@@ -110,17 +89,13 @@ func parseCommandLineFlags() {
 func SetupRouterWrapper(router *mux.Router, app *app.App) {
 	wrapper := newRouterWrapper(router, app)
 
-	router.HandleFunc("/telemetry/authenticate", wrapper.authenticateClient).Methods("POST")
-	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
-	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
 	router.HandleFunc("/healthz", wrapper.healthCheck).Methods("GET", "HEAD")
-
 }
 
 func InitializeApp(cfg *app.Config, debug bool) (a *app.App, router *mux.Router) {
 	router = mux.NewRouter()
 
-	a = app.NewApp("Server", cfg, router, debug)
+	a = app.NewApp("Admin", cfg, router, debug)
 
 	SetupRouterWrapper(router, a)
 

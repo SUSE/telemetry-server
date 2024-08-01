@@ -30,10 +30,11 @@ func (s *ServerAddress) Setup(api APIConfig) {
 
 // AppRequest is a struct tracking the resources associated with handling a request
 type AppRequest struct {
-	W    http.ResponseWriter
-	R    *http.Request
-	Vars map[string]string
-	Log  *slog.Logger
+	W     http.ResponseWriter
+	R     *http.Request
+	Vars  map[string]string
+	Log   *slog.Logger
+	Quiet bool
 }
 
 func (ar *AppRequest) getReader() (io.ReadCloser, error) {
@@ -114,12 +115,17 @@ func (ar *AppRequest) JsonResponse(code int, payload any) {
 	if err != nil {
 		ar.Log.Error("Response write failed", slog.Int("code", code), slog.Int("writeCode", writeCode), slog.String("error", err.Error()))
 	} else {
-		ar.Log.Info("Response", slog.Int("code", code))
+		if !ar.Quiet {
+			ar.Log.Info("Response", slog.Int("code", code))
+		} else {
+			ar.Log.Debug("Response", slog.Int("code", code))
+		}
 	}
 }
 
 // App is a struct tracking the resources associated with the application
 type App struct {
+	Name          string
 	debugMode     bool
 	Config        *Config
 	TelemetryDB   DbConnection
@@ -132,9 +138,10 @@ type App struct {
 	AuthManager   *AuthManager
 }
 
-func NewApp(cfg *Config, handler http.Handler, debugMode bool) *App {
+func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App {
 	a := new(App)
 
+	a.Name = name
 	a.Config = cfg
 	a.Handler = handler
 	a.debugMode = debugMode
@@ -244,7 +251,7 @@ func (a *App) Initialize() error {
 }
 
 func (a *App) Run() {
-	slog.Info("Starting Telemetry Server", slog.String("listenOn", a.ListenOn()))
+	slog.Info("Starting Telemetry "+a.Name, slog.String("listenOn", a.ListenOn()))
 	if err := http.ListenAndServe(a.ListenOn(), a.Handler); err != nil {
 		slog.Error("ListenAndServe() failed", slog.Any("error", err.Error()))
 		panic(err)

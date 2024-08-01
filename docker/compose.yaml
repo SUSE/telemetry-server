@@ -3,8 +3,9 @@ services:
     image: telemetry/server
     build:
       context: ..
+      target: telemetry-server
       args:
-        cfgFile: composeServer.yaml
+        serverCfg: composeServer.yaml
     expose:
       - 9999
     networks:
@@ -15,9 +16,34 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      tsa:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsg:9999/healthz || exit 1"]
-      interval: 30s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  tsa:
+    image: telemetry/admin
+    build:
+      context: ..
+      target: telemetry-admin
+      args:
+        adminCfg: composeAdmin.yaml
+    expose:
+      - 9998
+    networks:
+      - external
+      - internal
+    ports:
+      - "9998:9998"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --insecure http://tsa:9998/healthz || exit 1"]
+      interval: 5s
       timeout: 5s
       retries: 10
 
