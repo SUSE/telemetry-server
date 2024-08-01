@@ -1,16 +1,16 @@
 api:
-  host: 0.0.0.0
+  host: localhost
   port: 9999
 dbs:
   telemetry:
     driver: sqlite3
-    params: /var/lib/tsvc/data/telemetry.db
+    params: /tmp/telemetry/server/telemetry.db
   operational:
     driver: sqlite3
-    params: /var/lib/tsvc/data/operational.db
+    params: /tmp/telemetry/server/operational.db
   staging:
     driver: sqlite3
-    params: /var/lib/tsvc/data/staging.db
+    params: /tmp/telemetry/server/staging.db
 logging:
   level: info
   location: stderr

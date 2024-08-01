@@ -1,13 +1,13 @@
 api:
-  host: 0.0.0.0
-  port: 9999
+  host: tsa
+  port: 9998
 dbs:
   telemetry:
     driver: sqlite3
     params: /var/lib/tsvc/data/telemetry.db
   operational:
-    driver: sqlite3
-    params: /var/lib/tsvc/data/operational.db
+    driver: postgres
+    params: "postgres://postgres:telemetry@db:5432/operational"
   staging:
     driver: sqlite3
     params: /var/lib/tsvc/data/staging.db

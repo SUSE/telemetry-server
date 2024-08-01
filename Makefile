@@ -12,7 +12,8 @@ include Makefile.e2e
 SUBDIRS = \
   . \
   app \
-  server/telemetry-server
+  server/telemetry-server \
+  server/telemetry-admin
 
 TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
 

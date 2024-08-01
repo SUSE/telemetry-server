@@ -1,21 +1,38 @@
+# docker containers - just server for now, but admin can be
+# handled as well if telemetry-admin is added to the end of
+# this list
+TELEMETRY_CONTAINERS = \
+  telemetry-server
+
+
 # docker container actions
 .PHONY: docker-build docker-start docker-run docker-ps docker-status docker-logs docker-stop
 
-# Start the telemetry-server using docker
+# Start the telemetry containers using docker
 docker-build: vet
-	docker build -t telemetry-server . --build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH)
+	for cntr in $(TELEMETRY_CONTAINERS); do \
+		docker build -t $${cntr} --target $${cntr} . --build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH); \
+	done
 
 docker-start docker-run: docker-build
-	docker run --rm -it -d -p 9999:9999 --name telemetry-server telemetry-server
+	port=9999; \
+	for cntr in $(TELEMETRY_CONTAINERS); do \
+		docker run --rm -it -d -p $${port}:$${port} --name $${cntr} $${cntr}; \
+		port=$$(expr $${port} - 1); \
+	done
 
 docker-ps docker-status:
-	docker ps --filter name=\^telemetry-server\$
+	docker ps --filter name=\^$$(echo $(TELEMETRY_CONTAINERS) | tr -s ' ' | tr ' ' '|')\$$;
 
 docker-logs:
-	docker logs -n 100 telemetry-server
+	for cntr in $(TELEMETRY_CONTAINERS); do \
+		docker logs -n 100 $${cntr}; \
+	done
 
 docker-stop: docker-status
-	docker stop telemetry-server
+	-for cntr in $(TELEMETRY_CONTAINERS); do \
+		docker stop $${cntr}; \
+	done
 
 docker-clean:
 	docker buildx prune -f --filter="until=24h"

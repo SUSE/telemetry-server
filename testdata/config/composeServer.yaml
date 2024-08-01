@@ -4,13 +4,13 @@ api:
 dbs:
   telemetry:
     driver: sqlite3
-    params: /tmp/telemetry/server/telemetry.db
+    params: /var/lib/tsvc/data/telemetry.db
   operational:
     driver: postgres
     params: "postgres://postgres:telemetry@db:5432/operational"
   staging:
     driver: sqlite3
-    params: /tmp/telemetry/server/staging.db
+    params: /var/lib/tsvc/data/staging.db
 logging:
   level: info
   location: stderr
