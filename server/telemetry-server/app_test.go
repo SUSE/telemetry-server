@@ -114,7 +114,7 @@ func (t *AppTestSuite) TestReportTelemetry() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body := createReportPayload(t.T())
+	body := createReportPayload()
 
 	rr, err := postToReportTelemetryHandler(body, "", true, t)
 	assert.NoError(t.T(), err)
@@ -136,7 +136,7 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadGZIP() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body := createReportPayload(t.T())
+	body := createReportPayload()
 
 	//Compress payload
 	cbody, err := compressedData([]byte(body), "gzip")
@@ -161,7 +161,7 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadDeflate() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body := createReportPayload(t.T())
+	body := createReportPayload()
 
 	//Compress payload
 	cbody, err := compressedData([]byte(body), "deflate")
@@ -447,23 +447,19 @@ func TestAppTestSuite(t *testing.T) {
 	suite.Run(t, new(AppTestSuite))
 }
 
-func createReportPayload(t *testing.T) (reportPayload string) {
+func createReportPayload() (reportPayload string) {
 	// Create 2 dataitems
 	telemetryType := types.TelemetryType("SLE-SERVER-Test")
 	itags1 := types.Tags{types.Tag("ikey1=ivalue1"), types.Tag("ikey2")}
 	itags2 := types.Tags{types.Tag("ikey1=ivalue1")}
-	payload := `
-			{
-				"ItemA": 1,
-				"ItemB": "b",
-				"ItemC": "c"
-			}
-			`
+	payload := types.NewTelemetryBlob([]byte(`{
+		"ItemA": 1,
+		"ItemB": "b",
+		"ItemC": "c"
+	}`))
 
-	item1, err := telemetrylib.NewTelemetryDataItem(telemetryType, itags1, []byte(payload))
-	assert.NoError(t, err)
-	item2, err := telemetrylib.NewTelemetryDataItem(telemetryType, itags2, []byte(payload))
-	assert.NoError(t, err)
+	item1 := telemetrylib.NewTelemetryDataItem(telemetryType, itags1, payload)
+	item2 := telemetrylib.NewTelemetryDataItem(telemetryType, itags2, payload)
 
 	client_id := int64(12345)
 

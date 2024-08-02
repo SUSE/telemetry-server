@@ -84,13 +84,25 @@ func int64Conv(value any) (outValue int64, err error) {
 func (t *SccHwInfoTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) (err error) {
 	t.TelemetryDataCommon.Init(dItm, bHdr, tagSetId)
 
+	// unmarshal the provided telemetry JSON blob
+	var tData map[string]any
+	err = json.Unmarshal([]byte(dItm.TelemetryData), &tData)
+	if err != nil {
+		slog.Error(
+			"Failed to unmarshal telemetry data JSON blob",
+			slog.String("telemetryType", t.TelemetryType),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
 	hwiName := "hwinfo"
-	err = checkRequiredMapFieldsExist(dItm.TelemetryData, hwiName, "distro_target")
+	err = checkRequiredMapFieldsExist(tData, hwiName, "distro_target")
 	if err != nil {
 		slog.Error("required data fields missing", slog.String("telemetryType", t.TelemetryType), slog.String("error", err.Error()))
 		return
 	}
-	hwi, ok := dItm.TelemetryData[hwiName].(map[string]any)
+	hwi, ok := tData[hwiName].(map[string]any)
 	if !ok {
 		err := fmt.Errorf("field %q in telemetryType %q data is not a map", hwiName, t.TelemetryType)
 		return err
@@ -102,7 +114,7 @@ func (t *SccHwInfoTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, b
 	}
 
 	t.Hostname = hwi["hostname"].(string)
-	t.DistroTarget = dItm.TelemetryData["distro_target"].(string)
+	t.DistroTarget = tData["distro_target"].(string)
 
 	t.Cpus, err = int64Conv(hwi["cpus"])
 	if err != nil {
