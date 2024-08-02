@@ -81,6 +81,25 @@ func (ar *AppRequest) ContentTypeJSON() {
 	ar.ContentType("application/json")
 }
 
+func (ar *AppRequest) SetWwwAuthenticate(challenge, realm, scope string) {
+	ar.SetHeader(
+		"WWW-Authenticate",
+		fmt.Sprintf(`%s realm="%s" scope="%s"`, challenge, realm, scope),
+	)
+}
+
+func (ar *AppRequest) SetWwwAuthScope(scope string) {
+	ar.SetWwwAuthenticate("Bearer", "suse-telemetry-service", scope)
+}
+
+func (ar *AppRequest) SetWwwAuthReauth() {
+	ar.SetWwwAuthScope("authenticate")
+}
+
+func (ar *AppRequest) SetWwwAuthRegister() {
+	ar.SetWwwAuthScope("register")
+}
+
 func (ar *AppRequest) Status(statusCode int) {
 	ar.Log.Debug("Response status", slog.Int("code", statusCode))
 	ar.W.WriteHeader(statusCode)

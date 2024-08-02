@@ -15,12 +15,24 @@ import (
 func (a *App) ReportTelemetry(ar *AppRequest) {
 	ar.Log.Info("Processing")
 
-	// verify that a valid authtoken has been provided
+	// retrieve required headers
+	hdrClientId := ar.GetClientId()
 	token := ar.GetAuthToken()
+
+	// missing clientId or token suggests client needs to register
+	if (hdrClientId == "") || (token == "") {
+		// client needs to register
+		ar.SetWwwAuthRegister()
+		ar.ErrorResponse(http.StatusUnauthorized, "Client registration required")
+		return
+	}
+
+	// verify that a valid authtoken has been provided
 	if err := a.AuthManager.VerifyToken(token); err != nil {
-		// TODO: Set WWW-Authenticate header appropriately, per
-		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
-		ar.ErrorResponse(http.StatusUnauthorized, "Missing or Invalid Authorization")
+		// client needs to re-authenticate
+		ar.SetWwwAuthReauth()
+		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Authorization")
+		return
 	}
 
 	ar.Log.Debug(
@@ -29,12 +41,12 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	)
 
 	// verify that the provided client id is a valid number
-	hdrClientId := ar.GetClientId()
 	clientId, err := strconv.ParseInt(hdrClientId, 0, 64)
 	if err != nil {
-		// TODO: Set WWW-Authenticate header appropriately, per
-		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		// client needs to register
+		ar.SetWwwAuthRegister()
 		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Client Id")
+		return
 	}
 
 	// verify that the request is from a registered client
@@ -45,17 +57,22 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
 		return
 	}
+
 	if !client.Exists() {
-		// TODO: Set WWW-Authenticate header appropriately, per
-		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		// client needs to register
+		ar.SetWwwAuthRegister()
 		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Client Id")
+		return
 	}
 
 	// verify that the provided authtoken matches last authtoken issued to the client
 	if client.AuthToken != token {
-		// TODO: Set WWW-Authenticate header appropriately, per
-		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		// TODO detect cloned clients, where InstID matches ClientId, but authtoken will
+		// will be stale
+		// client needs to re-authenticate
+		ar.SetWwwAuthReauth()
 		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Authorization")
+		return
 	}
 
 	ar.Log.Debug(

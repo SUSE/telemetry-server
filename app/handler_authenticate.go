@@ -29,7 +29,8 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 		return
 	}
 	if caReq.ClientId <= 0 {
-		ar.ErrorResponse(http.StatusBadRequest, "Invalid ClientId value provided")
+		ar.SetWwwAuthRegister()
+		ar.ErrorResponse(http.StatusUnauthorized, "Invalid ClientId value provided")
 		return
 	}
 	ar.Log.Debug("Unmarshaled", slog.Any("caReq", &caReq))
@@ -45,8 +46,8 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 
 	// confirm that the client has been registered
 	if !client.Exists() {
-		// TODO: Set WWW-Authenticate header appropriately, per
-		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		// client needs to register
+		ar.SetWwwAuthRegister()
 		ar.ErrorResponse(http.StatusUnauthorized, "Client not registered")
 		return
 	}
@@ -59,11 +60,14 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 			slog.String("Req Hash", caReq.InstIdHash.String()),
 			slog.String("DB Hash", instIdHash.String()),
 		)
-		// TODO: Set WWW-Authenticate header appropriately, per
-		// https://www.rfc-editor.org/rfc/rfc9110.html#name-www-authenticate
+		// client needs to re-register
+		ar.SetWwwAuthRegister()
 		ar.ErrorResponse(http.StatusUnauthorized, "ClientInstanceId mismatch")
 		return
 	}
+
+	// TODO: return existing token if remaining duration is >= half of
+	// a new tokens duration
 
 	// create a new token for the client
 	client.AuthToken, err = a.AuthManager.CreateToken()
