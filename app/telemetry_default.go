@@ -25,25 +25,12 @@ type DefaultTelemetryDataRow struct {
 	// Embed the common rows
 	TelemetryDataCommon
 
-	DataItem any `json:"dataItem"`
+	DataItem []byte `json:"dataItem"`
 }
 
 func (t *DefaultTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) (err error) {
 	t.TelemetryDataCommon.Init(dItm, bHdr, tagSetId)
-
-	// marshal telemetry data as JSON
-	jsonData, err := json.Marshal(dItm.TelemetryData)
-	if err != nil {
-		slog.Error(
-			"JSON marshal failed",
-			slog.Int64("clientId", t.ClientId),
-			slog.String("telemetryId", t.TelemetryId),
-			slog.String("timestamp", t.Timestamp),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-	t.DataItem = jsonData
+	t.DataItem = []byte(dItm.TelemetryData)
 
 	return
 }
