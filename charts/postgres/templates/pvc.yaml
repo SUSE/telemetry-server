@@ -5,9 +5,18 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
+  {{- if .Values.openplatform.enabled }}
+  storageClassName: {{ .Values.openplatform.pvc.storageClass | quote }}
+  accessModes:
+    - {{ .Values.openplatform.pvc.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.openplatform.pvc.storageSize | quote }}
+  {{- else }}
   storageClassName: manual
   accessModes:
     - ReadWriteMany
   resources:
     requests:
       storage: 5Gi
+  {{- end }}

@@ -51,3 +51,13 @@ postgres:
 awscredentials:
   accessKeyId: foo
   secretAccessKey: bar
+
+# OpenPlatform deployment
+# Defaults to enabled: true. Switch to false for local development
+openplatform:
+  enabled: true
+  pvc:
+    storageClass: ebs
+    accessMode: ReadWriteOnce
+    storageSize: 10Mi
+  backupSchedule: "0 0 * * 0-6"

@@ -4,7 +4,11 @@ metadata:
   name: postgres-backup
   namespace: {{ .Release.Namespace }}
 spec:
+{{- if .Values.openplatform.enabled }}
+  schedule: {{ required "A value for schedule is required" .Values.openplatform.backupSchedule | quote }}
+{{- else }}
   schedule: {{ required "A value for schedule is required" .Values.postgres.backup.schedule | quote }}
+{{- end }}
   jobTemplate:
     spec:
       template:
