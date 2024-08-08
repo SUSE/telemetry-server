@@ -8,7 +8,7 @@ metadata:
 spec:
   storageClassName: manual
   capacity:
-    storage: 10Mi
+    storage: 5Gi
   accessModes:
     - ReadWriteMany
   hostPath:

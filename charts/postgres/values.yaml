@@ -27,8 +27,9 @@ volumes:
     claimName: postgres-pv-claim
 
 volumeMounts:
-- mountPath: /var/lib/postgresql/ts-data
+- mountPath: /var/lib/postgresql/data
   name: postgres-volume
+  subPath: data
 
 autoscaling:
   enabled: false
@@ -59,5 +60,5 @@ openplatform:
   pvc:
     storageClass: ebs
     accessMode: ReadWriteOnce
-    storageSize: 10Mi
+    storageSize: 5Gi
   backupSchedule: "0 0 * * 0-6"
