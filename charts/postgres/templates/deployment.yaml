@@ -45,8 +45,6 @@ spec:
                 secretKeyRef:
                   name: postgres-config
                   key: POSTGRES_DB
-            - name: PGDATA
-              value: /var/lib/postgresql/ts-data
           {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}
