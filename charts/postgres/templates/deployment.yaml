@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}       
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: "{{ required "A value for image.repository is required" .Values.image.repository }}:{{ required "A value for image.tag is required" .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
