@@ -22,13 +22,13 @@ resources:
     memory: 256Mi
 
 volumes:
-- name: postgredb
+- name: postgres-volume
   persistentVolumeClaim:
     claimName: postgres-pv-claim
 
 volumeMounts:
-- mountPath: /var/lib/postgresql/data
-  name: postgredb
+- mountPath: /var/lib/postgresql/ts-data
+  name: postgres-volume
 
 autoscaling:
   enabled: false
@@ -41,14 +41,13 @@ postgres:
   db: operational
   user: postgres
   password: telemetry
+  backup:
+    containerImage: postgres:16
+    containerName: postgres-backup
+    awsBucket: test-ts-postgres-backup
+    # For testing purposes, scheduled to backup every minute, change as needed
+    schedule: "* * * * *"
 
-# OpenPlatform
-# postgres:
-#   persistence:
-#     enabled: true
-#     storageClass: ebs
-#     accessMode: ReadWriteOnce
-#     size: 10Mi
-#   volumeMounts:
-#   - name: postgres-pvc
-#     mountPath: /var/lib/postgresql/telemetry-server-data
+awscredentials:
+  accessKeyId: foo
+  secretAccessKey: bar
