@@ -2,6 +2,7 @@ ifeq ($(MAKELEVEL),0)
 
 TELEMETRY_REPO_BRANCH = main
 
+include Makefile.local-server
 include Makefile.compose
 include Makefile.docker
 include Makefile.generate

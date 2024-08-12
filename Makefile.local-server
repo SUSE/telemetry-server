@@ -1,0 +1,21 @@
+ifdef DEBUG
+TELEMETRY_DEBUG = --debug
+else
+TELEMETRY_DEBUG =
+endif
+TELEMETRY_SERVER = server/telemetry-server
+TELEMETRY_TMP = /tmp/telemetry
+TELEMETRY_SERVER_TMP = $(TELEMETRY_TMP)/server
+
+.PHONY: local-server local-server-cleanup local-server-start
+
+local-server-cleanup:
+	cd $(TELEMETRY_SERVER); \
+	rm -rf $(TELEMETRY_SERVER_TMP)
+
+local-server-start:
+	cd $(TELEMETRY_SERVER); \
+	mkdir -p $(TELEMETRY_SERVER_TMP); \
+	go run . $(TELEMETRY_DEBUG) --config ../../testdata/config/localServer.yaml
+
+local-server: local-server-cleanup local-server-start
