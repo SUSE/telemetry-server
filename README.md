@@ -26,6 +26,26 @@ directory and run the server as follows:
 % go run . --config ../../testdata/config/localServer.yaml
 ```
 
+Alternatively you can run `make local-server` in the top-level directory to
+launch the local server as shown above. You can optionally specify the DEBUG
+variable to enabled DEBUG level logging, as follows:
+
+```
+% make local-server DEBUG=true
+cd server/telemetry-server; \
+rm -rf /tmp/telemetry/server
+cd server/telemetry-server; \
+mkdir -p /tmp/telemetry/server; \
+go run . --debug --config ../../testdata/config/localServer.yaml
+time=2024-08-12T17:08:11.756-04:00 level=DEBUG msg="Logging initialised" level=DEBUG dest=stderr style=TEXT
+time=2024-08-12T17:08:11.756-04:00 level=DEBUG msg="Preparing to start gorilla/mux based server" options="{\"config\":\"../../testdata/config/localServer.yaml\",\"debug\":true}"
+time=2024-08-12T17:08:11.756-04:00 level=DEBUG msg="Loading config" path=../../testdata/config/localServer.yaml
+...
+```
+
+To stop the local server instance you will need to hit Ctrl-C or otherwise
+kill the server process.
+
 ## Starting the telemetry server with docker compose
 Note that the following instructions expect that you have a modern version
 of docker with the compose plugin installed.

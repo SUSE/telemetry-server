@@ -52,7 +52,7 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 		return
 	}
 
-	// confirm that the provided clientInstanceId SHA matches the registered on
+	// confirm that the provided clientInstanceId SHA matches the registered one
 	instIdHash := client.ClientInstanceId.Hash(caReq.InstIdHash.Method)
 	if !instIdHash.Match(&caReq.InstIdHash) {
 		ar.Log.Error(
