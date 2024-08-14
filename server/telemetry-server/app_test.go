@@ -278,8 +278,13 @@ func (t *AppTestSuite) TestAuthenticateClientWithInvalidClientId() {
 	rr, err := postToAuthenticateClientHandler(body, t)
 	assert.NoError(t.T(), err)
 
-	assert.Equal(t.T(), 400, rr.Code)
+	assert.Equal(t.T(), 401, rr.Code)
 
+	wwwAuthList, ok := rr.Result().Header[http.CanonicalHeaderKey("WWW-Authenticate")]
+	assert.True(t.T(), ok, "missing WWW-Authenticate header")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], "Bearer"), "WWW-Authenticate should contain Bearer challenge")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], `realm="suse-telemetry-service"`), "WWW-Authenticate should contain correct realm")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], `scope="register"`), "WWW-Authenticate should contain correct scope")
 }
 
 func (t *AppTestSuite) TestAuthenticateClientWithUnregisteredClientId() {
@@ -293,6 +298,11 @@ func (t *AppTestSuite) TestAuthenticateClientWithUnregisteredClientId() {
 
 	assert.Equal(t.T(), 401, rr.Code)
 
+	wwwAuthList, ok := rr.Result().Header[http.CanonicalHeaderKey("WWW-Authenticate")]
+	assert.True(t.T(), ok, "missing WWW-Authenticate header")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], "Bearer"), "WWW-Authenticate should contain Bearer challenge")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], `realm="suse-telemetry-service"`), "WWW-Authenticate should contain correct realm")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], `scope="register"`), "WWW-Authenticate should contain correct scope")
 }
 
 func (t *AppTestSuite) TestAuthenticateClientWithInvalidInstIdHash() {
@@ -384,7 +394,13 @@ func (t *AppTestSuite) TestAuthenticateClientWithEmptyJSON() {
 	body := `{}`
 	rr, err := postToAuthenticateClientHandler(body, t)
 	assert.NoError(t.T(), err)
-	assert.Equal(t.T(), 400, rr.Code)
+	assert.Equal(t.T(), 401, rr.Code)
+
+	wwwAuthList, ok := rr.Result().Header[http.CanonicalHeaderKey("WWW-Authenticate")]
+	assert.True(t.T(), ok, "missing WWW-Authenticate header")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], "Bearer"), "WWW-Authenticate should contain Bearer challenge")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], `realm="suse-telemetry-service"`), "WWW-Authenticate should contain correct realm")
+	assert.True(t.T(), strings.Contains(wwwAuthList[0], `scope="register"`), "WWW-Authenticate should contain correct scope")
 }
 
 func postToReportTelemetryHandler(body string, compression string, auth bool, t *AppTestSuite) (*httptest.ResponseRecorder, error) {

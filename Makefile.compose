@@ -15,7 +15,7 @@ compose-ps compose-status:
 	cd docker && docker compose ps
 
 compose-logs:
-	cd docker && docker compose logs -n 100
+	cd docker && docker compose logs --tail 100
 
 compose-stop compose-down: compose-status
 	cd docker && docker compose down
