@@ -1,24 +1,18 @@
 package app
 
-// Telemetry DB Tables
-var dbTablesTelemetry = map[string]string{
-	// tag set storage table
-	"tagSets": tagSetsTableColumns,
-
-	// default telemetry storage table
-	"telemetryData": defaultTelemetryTableColumns,
-}
-
 // Staging DB Tables
-var dbTablesStaging = map[string]string{
-	"reports": reportsTableColumns,
+var stagingTables = []TableSpec{
+	reportsStagingTableSpec,
 }
 
+// Operational DB Tables
 var operationalTables = []TableSpec{
 	clientsTableSpec,
 }
 
-// telemetry type specific transform tables
-var dbTablesXform = map[string]string{
-	"telemetrySccHwInfo": sccHwInfoTelemetryTableColumns,
+// Telemetry DB Tables
+var telemetryTables = []TableSpec{
+	tagSetsTableSpec,
+	defaultTelemetryTableSpec,
+	sccHwInfoTelemetryTableSpec,
 }

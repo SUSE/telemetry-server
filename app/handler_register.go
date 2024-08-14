@@ -37,12 +37,13 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	// register the client
 	client := new(ClientsRow)
-	client.InitRegistration(&crReq)
 	if err = client.SetupDB(&a.OperationalDB); err != nil {
 		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
 		return
 	}
+
+	client.InitRegistration(&crReq)
 	if client.InstIdExists() {
 		ar.ErrorResponse(http.StatusConflict, "specified clientInstanceId already exists")
 		return

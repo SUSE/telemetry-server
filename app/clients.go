@@ -23,9 +23,6 @@ type ClientsRow struct {
 	// include common table row fields
 	TableRowCommon
 
-	// table specific query handlers
-	instIdExists *sql.Stmt
-
 	Id               int64                  `json:"id"`
 	ClientInstanceId types.ClientInstanceId `json:"clientInstanceId"`
 	RegistrationDate string                 `json:"registrationDate"`
@@ -63,119 +60,33 @@ func (c *ClientsRow) String() string {
 
 func (c *ClientsRow) SetupDB(db *DbConnection) (err error) {
 	c.tableSpec = &clientsTableSpec
-	err = c.TableRowCommon.SetupDB(db)
-	if err != nil {
-		slog.Error("SetupDB() failed", slog.String("table", c.tableSpec.Name))
-		return err
-	}
-
-	var ph Placeholder
-	var stmt string
-
-	// prepare clientId exists check statement
-	ph = c.db.Placeholder(1)
-	stmt = `SELECT ` +
-		c.tableSpec.Columns[1].Name + `, ` +
-		c.tableSpec.Columns[2].Name + `, ` +
-		c.tableSpec.Columns[3].Name +
-		` FROM ` + c.TableName() +
-		` WHERE ` +
-		c.tableSpec.Columns[0].Name + ` = ` + ph.Next()
-
-	c.exists, err = c.db.Conn.Prepare(stmt)
-	if err != nil {
-		slog.Error(
-			"exists statement prep failed",
-			slog.String("table", c.TableName()),
-			slog.String("statement", stmt),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	// prepare clientInstanceId exists check statement
-	ph = c.db.Placeholder(1)
-	stmt = `SELECT ` +
-		c.tableSpec.Columns[0].Name + `, ` +
-		c.tableSpec.Columns[2].Name + `, ` +
-		c.tableSpec.Columns[3].Name +
-		` FROM ` + c.TableName() +
-		` WHERE ` +
-		c.tableSpec.Columns[1].Name + ` = ` + ph.Next()
-
-	c.instIdExists, err = c.db.Conn.Prepare(stmt)
-	if err != nil {
-		slog.Error(
-			"exists statement prep failed",
-			slog.String("table", c.TableName()),
-			slog.String("statement", stmt),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	// prepare insert statement
-	ph = c.db.Placeholder(3)
-	stmt = `INSERT INTO ` + c.TableName() +
-		`(` + c.tableSpec.Columns[1].Name +
-		`, ` + c.tableSpec.Columns[2].Name +
-		`, ` + c.tableSpec.Columns[3].Name + `) ` +
-		`VALUES(` +
-		ph.Next() + `, ` +
-		ph.Next() + `, ` +
-		ph.Next() + `) ` +
-		`RETURNING ` + c.tableSpec.Columns[0].Name
-	c.insert, err = c.db.Conn.Prepare(stmt)
-	if err != nil {
-		slog.Error(
-			"insert statement prep failed",
-			slog.String("table", c.TableName()),
-			slog.String("statement", stmt),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	// prepare update statement
-	ph = c.db.Placeholder(4)
-	stmt = `UPDATE ` + c.TableName() +
-		` SET ` +
-		c.tableSpec.Columns[1].Name + ` = ` + ph.Next() + ", " +
-		c.tableSpec.Columns[2].Name + ` = ` + ph.Next() + ", " +
-		c.tableSpec.Columns[3].Name + ` = ` + ph.Next() +
-		` WHERE ` +
-		c.tableSpec.Columns[0].Name + ` = ` + ph.Next()
-	c.update, err = c.db.Conn.Prepare(stmt)
-	if err != nil {
-		slog.Error(
-			"update statement prep failed",
-			slog.String("table", c.TableName()),
-			slog.String("statement", stmt),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	// prepare delete statement
-	ph = c.db.Placeholder(1)
-	stmt = `DELETE FROM ` + c.TableName() + ` WHERE ` +
-		c.tableSpec.Columns[0].Name + ` = ` + ph.Next()
-	c.delete, err = c.db.Conn.Prepare(stmt)
-	if err != nil {
-		slog.Error(
-			"delete statement prep failed",
-			slog.String("table", c.TableName()),
-			slog.String("statement", stmt),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	return
+	return c.TableRowCommon.SetupDB(db)
 }
 
 func (c *ClientsRow) Exists() bool {
-	row := c.exists.QueryRow(c.Id)
+	stmt, err := c.SelectStmt(
+		// select columns
+		[]string{
+			"clientInstanceId",
+			"registrationDate",
+			"authToken",
+		},
+		// match columns
+		[]string{
+			"id",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"exists statement generation failed",
+			slog.String("table", c.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := c.DB().QueryRow(stmt, c.Id)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -197,7 +108,29 @@ func (c *ClientsRow) Exists() bool {
 }
 
 func (c *ClientsRow) InstIdExists() bool {
-	row := c.instIdExists.QueryRow(c.ClientInstanceId)
+	stmt, err := c.SelectStmt(
+		// select columns
+		[]string{
+			"id",
+			"registrationDate",
+			"authToken",
+		},
+		// match columns
+		[]string{
+			"clientInstanceId",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"instIdExists statement generation failed",
+			slog.String("table", c.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := c.DB().QueryRow(stmt, c.ClientInstanceId)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -219,8 +152,27 @@ func (c *ClientsRow) InstIdExists() bool {
 }
 
 func (c *ClientsRow) Insert() (err error) {
-	row := c.insert.QueryRow(
-		c.ClientInstanceId, c.RegistrationDate, c.AuthToken,
+	stmt, err := c.InsertStmt(
+		[]string{
+			"clientInstanceId",
+			"registrationDate",
+			"authToken",
+		},
+		"id",
+	)
+	if err != nil {
+		slog.Error(
+			"insert statement generation failed",
+			slog.String("table", c.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+	row := c.DB().QueryRow(
+		stmt,
+		c.ClientInstanceId,
+		c.RegistrationDate,
+		c.AuthToken,
 	)
 	if err = row.Scan(
 		&c.Id,
@@ -237,7 +189,26 @@ func (c *ClientsRow) Insert() (err error) {
 }
 
 func (c *ClientsRow) Update() (err error) {
-	_, err = c.update.Exec(
+	stmt, err := c.UpdateStmt(
+		[]string{
+			"clientInstanceId",
+			"registrationDate",
+			"authToken",
+		},
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"update statement generation failed",
+			slog.String("table", c.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+	_, err = c.DB().Exec(
+		stmt,
 		c.ClientInstanceId,
 		c.RegistrationDate,
 		c.AuthToken,
@@ -246,7 +217,7 @@ func (c *ClientsRow) Update() (err error) {
 	if err != nil {
 		slog.Error(
 			"update failed",
-			slog.String("table", c.table),
+			slog.String("table", c.TableName()),
 			slog.Int64("id", c.Id),
 			slog.String("error", err.Error()),
 		)
@@ -255,13 +226,28 @@ func (c *ClientsRow) Update() (err error) {
 }
 
 func (c *ClientsRow) Delete() (err error) {
-	_, err = c.delete.Exec(
+	stmt, err := c.DeleteStmt(
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"delete statement generation failed",
+			slog.String("table", c.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = c.DB().Exec(
+		stmt,
 		c.Id,
 	)
 	if err != nil {
 		slog.Error(
 			"delete failed",
-			slog.String("table", c.table),
+			slog.String("table", c.TableName()),
 			slog.Int64("id", c.Id),
 			slog.String("error", err.Error()),
 		)
