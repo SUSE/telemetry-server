@@ -21,7 +21,7 @@ TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
 .PHONY: $(TARGETS)
 
 $(TARGETS):
-	$(foreach subdir, $(SUBDIRS), $(MAKE) -C $(subdir) $@;)
+	$(foreach subdir, $(SUBDIRS), $(MAKE) -C $(subdir) $@ || exit 1;)
 else
 include Makefile.golang
 endif
