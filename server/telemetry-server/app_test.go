@@ -195,7 +195,7 @@ func (t *AppTestSuite) TestRegisterClient() {
 	assert.Equal(t.T(), 200, rr.Code)
 
 	//Validate the response has these attributes
-	substrings := []string{"clientId", "authToken", "issueDate"}
+	substrings := []string{"clientId", "authToken", "registrationDate"}
 	for _, substring := range substrings {
 		if !strings.Contains(rr.Body.String(), substring) {
 			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
@@ -217,7 +217,7 @@ func (t *AppTestSuite) TestAuthenticateClient() {
 	assert.Equal(t.T(), 200, rr.Code)
 
 	//Validate the response has these attributes
-	substrings := []string{"clientId", "authToken", "issueDate"}
+	substrings := []string{"clientId", "authToken", "registrationDate"}
 	for _, substring := range substrings {
 		if !strings.Contains(rr.Body.String(), substring) {
 			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
