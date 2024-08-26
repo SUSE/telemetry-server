@@ -14,31 +14,37 @@ func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.Telemet
 	// Stores the report body into the staging database in the reports table
 
 	// create a ReportStagingTableRow struct
-	reportStagingRow := ReportStagingTableRow{
-		ClientId:   fmt.Sprintf("%d", rHeader.ReportClientId),
-		ReportId:   rHeader.ReportId,
-		Data:       reqBody,
-		ReceivedAt: types.Now().String(),
+
+	reportStagingRow := new(ReportStagingTableRow)
+	if err = reportStagingRow.SetupDB(&a.StagingDB); err != nil {
+		slog.Error("ReportStagingTableRow.SetupDB failed", slog.String("error", err.Error()))
+		return
 	}
 
-	if err := reportStagingRow.Insert(a.StagingDB.Conn); err != nil {
+	reportStagingRow.Init(
+		fmt.Sprintf("%d", rHeader.ReportClientId),
+		rHeader.ReportId,
+		reqBody,
+	)
+
+	if err = reportStagingRow.Insert(); err != nil {
 		slog.Error("staged report insert failed", slog.String("report", reportStagingRow.ReportIdentifer()), slog.String("error", err.Error()))
-		return err
 	}
 
 	return
 }
 
 func (a *App) ProcessStagedReports() {
-	var reportRow = ReportStagingTableRow{}
+	reportRow := new(ReportStagingTableRow)
+	reportRow.SetupDB(&a.StagingDB)
 
-	for reportRow.FirstUnallocated(a.StagingDB.Conn) {
-		err := a.ProcessStagedReport(&reportRow)
+	for reportRow.FirstUnallocated() {
+		err := a.ProcessStagedReport(reportRow)
 		if err != nil {
 			slog.Error("report processing failed", slog.String("error", err.Error()))
 			continue
 		}
-		err = reportRow.Delete(a.StagingDB.Conn)
+		err = reportRow.Delete()
 		if err != nil {
 			slog.Error("delete of processed report failed", slog.String("error", err.Error()))
 		}
@@ -49,8 +55,23 @@ func (a *App) ProcessStagedReport(reportRow *ReportStagingTableRow) (err error) 
 	slog.Info("Processing", slog.String("report", reportRow.ReportIdentifer()))
 
 	var report telemetrylib.TelemetryReport
+	var reportData []byte
 
-	err = json.Unmarshal(reportRow.Data.([]byte), &report)
+	switch t := reportRow.Data.(type) {
+	case []byte: // sqlite3
+		reportData = reportRow.Data.([]byte)
+	case string: // postgresql
+		reportData = []byte(reportRow.Data.(string))
+	default:
+		err = fmt.Errorf("unsupported type: %T", t)
+		slog.Error(
+			"reportRow.Data type unmatched",
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	err = json.Unmarshal(reportData, &report)
 	if err != nil {
 		slog.Error("data unmarshal failed", slog.String("report", reportRow.ReportIdentifer()), slog.String("error", err.Error()))
 		return
@@ -74,17 +95,22 @@ func (a *App) ProcessStagedReport(reportRow *ReportStagingTableRow) (err error) 
 	return
 }
 
-const reportsTableColumns = `(
-	id INTEGER NOT NULL PRIMARY KEY,
-	clientId INTEGER NOT NULL,
-	reportId VARCHAR(64) NOT NULL,
-	data BLOB NOT NULL,
-	receivedAt VARCHAR(32) NOT NULL,
-	allocated BOOLEAN DEFAULT false NOT NULL,
-	allocatedAt VARCHAR(32) NULL
-)`
+var reportsStagingTableSpec = TableSpec{
+	Name: "reports",
+	Columns: []TableSpecColumn{
+		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
+		{Name: "clientId", Type: "INTEGER"},
+		{Name: "reportId", Type: "VARCHAR"},
+		{Name: "data", Type: "TEXT"},
+		{Name: "receivedAt", Type: "VARCHAR"},
+		{Name: "allocated", Type: "BOOLEAN", Default: "false"},
+		{Name: "allocatedAt", Type: "VARCHAR", Nullable: true},
+	},
+}
 
 type ReportStagingTableRow struct {
+	TableRowCommon
+
 	Id          int64  `json:"id"`
 	ClientId    string `json:"clientId"`
 	ReportId    string `json:"reportId"`
@@ -94,13 +120,44 @@ type ReportStagingTableRow struct {
 	AllocatedAt string `json:"allocatedAt"`
 }
 
+func (r *ReportStagingTableRow) Init(clientId, reportId string, data any) {
+	r.ClientId = clientId
+	r.ReportId = reportId
+	r.Data = data
+	r.ReceivedAt = types.Now().String()
+}
+
+func (r *ReportStagingTableRow) SetupDB(db *DbConnection) error {
+	r.tableSpec = &reportsStagingTableSpec
+	return r.TableRowCommon.SetupDB(db)
+}
+
 func (r *ReportStagingTableRow) ReportIdentifer() string {
 	return fmt.Sprintf("reportId: %v, clientId: %v, receivedAt: %v", r.ReportId, r.ClientId, r.ReceivedAt)
 }
 
-func (r *ReportStagingTableRow) Exists(DB *sql.DB) bool {
-	row := DB.QueryRow(
-		`SELECT id FROM reports WHERE clientId = ? AND reportId = ?`,
+func (r *ReportStagingTableRow) Exists() bool {
+	stmt, err := r.SelectStmt(
+		[]string{
+			"id",
+		},
+		[]string{
+			"clientId",
+			"reportId",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"exists statement generation failed",
+			slog.String("table", r.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := r.DB().QueryRow(
+		stmt,
 		r.ClientId,
 		r.ReportId,
 	)
@@ -113,9 +170,51 @@ func (r *ReportStagingTableRow) Exists(DB *sql.DB) bool {
 	return true
 }
 
-func (r *ReportStagingTableRow) FirstUnallocated(DB *sql.DB) bool {
+func (r *ReportStagingTableRow) FirstUnallocated() bool {
+	queryStmt, err := r.SelectStmt(
+		[]string{
+			"id",
+			"clientId",
+			"reportId",
+			"data",
+			"receivedAt",
+		},
+		[]string{
+			"allocated",
+		},
+		SelectOpts{
+			Limit: 1,
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"query statement generation failed",
+			slog.String("table", r.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	updateStmt, err := r.UpdateStmt(
+		[]string{
+			"allocated",
+			"allocatedAt",
+		},
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"update statement generation failed",
+			slog.String("table", r.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
 	// begin a transaction
-	TX, err := DB.Begin()
+	TX, err := r.DB().Begin()
 	if err != nil {
 		slog.Error("transaction begin failed", slog.String("error", err.Error()))
 		return false
@@ -123,7 +222,8 @@ func (r *ReportStagingTableRow) FirstUnallocated(DB *sql.DB) bool {
 
 	// retrieve the first unallocated report from the table, returning false if none was found
 	row := TX.QueryRow(
-		`SELECT id, clientId, reportId, data, receivedAt FROM reports WHERE allocated = false LIMIT 1`,
+		queryStmt,
+		false,
 	)
 	if err := row.Scan(&r.Id, &r.ClientId, &r.ReportId, &r.Data, &r.ReceivedAt); err != nil {
 		if err == sql.ErrNoRows {
@@ -145,7 +245,12 @@ func (r *ReportStagingTableRow) FirstUnallocated(DB *sql.DB) bool {
 	r.Allocated = true
 	r.AllocatedAt = types.Now().String()
 
-	_, err = TX.Exec(`UPDATE reports SET allocated = ?, allocatedAt = ? WHERE id = ?`, r.Allocated, r.AllocatedAt, r.Id)
+	_, err = TX.Exec(
+		updateStmt,
+		r.Allocated,
+		r.AllocatedAt,
+		r.Id,
+	)
 	if err != nil {
 		slog.Error("staged report update failed", slog.Int64("id", r.Id), slog.String("error", err.Error()))
 
@@ -169,27 +274,61 @@ func (r *ReportStagingTableRow) FirstUnallocated(DB *sql.DB) bool {
 	return true
 }
 
-func (r *ReportStagingTableRow) Insert(DB *sql.DB) (err error) {
-	res, err := DB.Exec(
-		`INSERT INTO reports(clientId, reportId, data, receivedAt) VALUES(?, ?, ?, ?)`,
-		r.ClientId, r.ReportId, r.Data, r.ReceivedAt,
+func (r *ReportStagingTableRow) Insert() (err error) {
+	stmt, err := r.InsertStmt(
+		[]string{
+			"clientId",
+			"reportId",
+			"data",
+			"receivedAt",
+		},
+		"id",
 	)
 	if err != nil {
-		slog.Error("report insert failed", slog.String("report", r.ReportIdentifer()), slog.String("error", err.Error()))
+		slog.Error(
+			"insert statement generation failed",
+			slog.String("table", r.TableName()),
+			slog.String("error", err.Error()),
+		)
 		return
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		slog.Error("report insertion id retrieval failed", slog.String("report", r.ReportIdentifer()), slog.String("error", err.Error()))
-		return
+
+	row := r.DB().QueryRow(
+		stmt,
+		r.ClientId,
+		r.ReportId,
+		r.Data,
+		r.ReceivedAt,
+	)
+	if err = row.Scan(
+		&r.Id,
+	); err != nil {
+		slog.Error(
+			"report insert failed",
+			slog.String("report", r.ReportIdentifer()),
+			slog.String("error", err.Error()),
+		)
 	}
-	r.Id = id
 
 	return
 }
 
-func (r *ReportStagingTableRow) Delete(DB *sql.DB) (err error) {
-	_, err = DB.Exec("DELETE FROM reports WHERE id = ?", r.Id)
+func (r *ReportStagingTableRow) Delete() (err error) {
+	stmt, err := r.DeleteStmt(
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"delete statement generation failed",
+			slog.String("table", r.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = r.DB().Exec(stmt, r.Id)
 	if err != nil {
 		slog.Error("report delete failed", slog.String("report", r.ReportIdentifer()), slog.String("error", err.Error()))
 		return err

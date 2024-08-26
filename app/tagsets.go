@@ -41,14 +41,23 @@ func createTagSet(tags []string) string {
 	return fmt.Sprintf("%s%s%s", tagSetSep, strings.Join(uniqueTags, tagSetSep), tagSetSep)
 }
 
-const tagSetsTableColumns = `(
-	id INTEGER NOT NULL PRIMARY KEY,
-	tagSet VARCHAR NOT NULL UNIQUE
-)`
+var tagSetsTableSpec = TableSpec{
+	Name: "tagSets",
+	Columns: []TableSpecColumn{
+		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
+		{Name: "tagSet", Type: "VARCHAR"},
+	},
+}
 
 type TagSetRow struct {
+	TableRowCommon
+
 	Id     int64  `json:"id"`
 	TagSet string `json:"tagSet"`
+}
+
+func (t *TagSetRow) Init(tagSet string) {
+	t.TagSet = tagSet
 }
 
 func (t *TagSetRow) String() string {
@@ -56,8 +65,31 @@ func (t *TagSetRow) String() string {
 	return string(bytes)
 }
 
-func (t *TagSetRow) Exists(DB *sql.DB) bool {
-	row := DB.QueryRow(`SELECT id FROM tagSets WHERE tagSet = ?`, t.TagSet)
+func (t *TagSetRow) SetupDB(db *DbConnection) error {
+	t.tableSpec = &tagSetsTableSpec
+	return t.TableRowCommon.SetupDB(db)
+}
+
+func (t *TagSetRow) Exists() bool {
+	stmt, err := t.SelectStmt(
+		[]string{
+			"id",
+		},
+		[]string{
+			"tagSet",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"exists statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := t.DB().QueryRow(stmt, t.TagSet)
 	if err := row.Scan(&t.Id); err != nil {
 		if err != sql.ErrNoRows {
 			slog.Error("tagSet existence check failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
@@ -67,21 +99,35 @@ func (t *TagSetRow) Exists(DB *sql.DB) bool {
 	return true
 }
 
-func (t *TagSetRow) Insert(DB *sql.DB) (err error) {
-	res, err := DB.Exec(
-		`INSERT INTO tagSets(tagSet) VALUES(?)`,
-		t.TagSet,
+func (t *TagSetRow) Insert() (err error) {
+	stmt, err := t.InsertStmt(
+		[]string{
+			"tagSet",
+		},
+		"id",
 	)
 	if err != nil {
-		slog.Error("tagSet insert failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
-		return err
+		slog.Error(
+			"exists statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		slog.Error("tagSet LastInsertId() failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
-		return err
+	row := t.DB().QueryRow(
+		stmt,
+		t.TagSet,
+	)
+	if err = row.Scan(
+		&t.Id,
+	); err != nil {
+		slog.Error(
+			"insert failed",
+			slog.String("table", t.TableName()),
+			slog.String("tagSet", t.TagSet),
+			slog.String("error", err.Error()),
+		)
 	}
-	t.Id = id
 
 	return
 }

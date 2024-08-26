@@ -228,7 +228,7 @@ func (a *App) Initialize() error {
 		return err
 	}
 
-	if err := a.StagingDB.EnsureTablesExist(dbTablesStaging); err != nil {
+	if err := a.StagingDB.EnsureTableSpecsExist(stagingTables); err != nil {
 		slog.Error("Staging DB tables setup failed", slog.String("error", err.Error()))
 		return err
 	}
@@ -250,13 +250,8 @@ func (a *App) Initialize() error {
 		return err
 	}
 
-	if err := a.TelemetryDB.EnsureTablesExist(dbTablesTelemetry); err != nil {
-		slog.Error("Telemetry DB standard tables setup failed", slog.String("error", err.Error()))
-		return err
-	}
-
-	if err := a.TelemetryDB.EnsureTablesExist(dbTablesXform); err != nil {
-		slog.Error("Telemetry DB transform tables exist", slog.String("error", err.Error()))
+	if err := a.TelemetryDB.EnsureTableSpecsExist(telemetryTables); err != nil {
+		slog.Error("Telemetry DB tables setup failed", slog.String("error", err.Error()))
 		return err
 	}
 

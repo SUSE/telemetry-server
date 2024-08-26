@@ -10,13 +10,23 @@ func (a *App) StoreTelemetry(dItm *telemetrylib.TelemetryDataItem, bHeader *tele
 	// generate a tagSet from the bundle and data item tags
 	tagSet := createTagSet(append(dItm.Header.TelemetryAnnotations, bHeader.BundleAnnotations...))
 
-	tsRow := TagSetRow{
-		TagSet: tagSet,
+	tsRow := new(TagSetRow)
+	if err = tsRow.SetupDB(&a.TelemetryDB); err != nil {
+		slog.Error("TagSetRow.SetupDB failed", slog.String("error", err.Error()))
+		return
 	}
 
+	tsRow.Init(tagSet)
+
+	/*
+		tsRow := TagSetRow{
+			TagSet: tagSet,
+		}
+	*/
+
 	// add the tagSet to the tagSets table, if not already present
-	if !tsRow.Exists(a.TelemetryDB.Conn) {
-		if err := tsRow.Insert(a.TelemetryDB.Conn); err != nil {
+	if !tsRow.Exists() {
+		if err := tsRow.Insert(); err != nil {
 			slog.Error("tagSet insert failed", slog.String("tagSet", tsRow.TagSet), slog.String("error", err.Error()))
 			return err
 		}

@@ -51,13 +51,13 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 
 	// verify that the request is from a registered client
 	client := new(ClientsRow)
-	client.InitClientId(clientId)
 	if err = client.SetupDB(&a.OperationalDB); err != nil {
 		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
 		return
 	}
 
+	client.InitClientId(clientId)
 	if !client.Exists() {
 		// client needs to register
 		ar.SetWwwAuthRegister()
