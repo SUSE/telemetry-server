@@ -1,0 +1,15 @@
+{{- if .Values.openplatform.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  namespace: telemetry
+  name: postgres-route
+spec:
+  parentRefs:
+    - name: itpe-istio-gateway
+      namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: postgres
+      port: 5432
+{{- end -}}
