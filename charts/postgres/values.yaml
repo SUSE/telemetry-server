@@ -42,6 +42,7 @@ postgres:
   db: operational
   user: postgres
   password: telemetry
+  biTeamPassword: qzCE8MDP3TgK
   backup:
     containerImage: postgres:16
     containerName: postgres-backup

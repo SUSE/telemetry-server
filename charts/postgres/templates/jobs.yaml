@@ -26,6 +26,11 @@ spec:
                 secretKeyRef:
                   name: postgres-config
                   key: POSTGRES_PASSWORD
+            - name: BI_TEAM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-config
+                  key: bi_team_password
           volumeMounts:
             - name: init-sql
               mountPath: /scripts/init.sql
