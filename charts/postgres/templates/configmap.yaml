@@ -11,7 +11,7 @@ data:
     WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'telemetry')\gexec
 
     -- Create the bi_team user
-    SELECT 'CREATE USER bi_team WITH PASSWORD ''{{BI_TEAM_PASSWORD}}'''
+    SELECT 'CREATE USER bi_team WITH PASSWORD ''__BI_TEAM_PASSWORD__'''
     WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'bi_team')\gexec
 
     -- Create staging database and grant user access

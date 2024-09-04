@@ -14,6 +14,7 @@ spec:
             - -c
             - |
               until pg_isready -h postgres -U $POSTGRES_USER; do sleep 1; done
+              sed -i "s|__BI_TEAM_PASSWORD__|${BI_TEAM_PASSWORD}|g" /scripts/init.sql
               psql -h postgres -U $POSTGRES_USER -f /scripts/init.sql
           env:
             - name: POSTGRES_USER
