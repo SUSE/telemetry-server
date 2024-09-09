@@ -1,0 +1,17 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: itpe-istio-gateway
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: postgres-tcp
+      protocol: TCP
+      port: 5432
+      allowedRoutes:
+        namespaces:
+          from: All
+      address:
+      - type: IPAddress
+        value: 10.0.0.5
