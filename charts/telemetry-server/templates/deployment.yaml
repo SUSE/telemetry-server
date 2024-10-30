@@ -34,6 +34,36 @@ spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-rds-postgres
+          image: "{{ .Values.rdsInit.image.repository }}:{{ .Values.rdsInit.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h rds-postgres -U $POSTGRES_USER; do sleep 1; done
+              sed -i "s|__BI_TEAM_PASSWORD__|${BI_TEAM_PASSWORD}|g" /scripts/init.sql
+              psql -h rds-postgres -U $POSTGRES_USER -f /scripts/init.sql
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: POSTGRES_PASSWORD
+            - name: BI_TEAM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: BI_TEAM_USER_PASS
+          volumeMounts:
+            - name: init-sql
+              mountPath: /scripts/init.sql
+              subPath: init.sql
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

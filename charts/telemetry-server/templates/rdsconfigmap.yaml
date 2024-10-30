@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rds-postgres-init
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  init.sql: |
+    -- Create the telemetry user
+    SELECT 'CREATE USER telemetry'
+    WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'telemetry')\gexec
+
+    -- Create the bi_team user
+    SELECT 'CREATE USER bi_team WITH PASSWORD ''__BI_TEAM_PASSWORD__'''
+    WHERE NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'bi_team')\gexec
+
+    -- Create staging database and grant user access
+    SELECT 'CREATE DATABASE staging WITH TEMPLATE template0'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'staging')\gexec
+    \c staging
+    GRANT ALL PRIVILEGES ON DATABASE staging TO telemetry;
+    GRANT ALL PRIVILEGES ON DATABASE staging TO bi_team;
+
+    -- Create operational database and grant user access
+    SELECT 'CREATE DATABASE operational WITH TEMPLATE template0'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname= 'operational')\gexec
+    \c operational
+    GRANT ALL PRIVILEGES ON DATABASE operational TO telemetry;
+    GRANT ALL PRIVILEGES ON DATABASE operational TO bi_team;
+
+    -- Create telemetry database and grant user access
+    SELECT 'CREATE DATABASE telemetry WITH TEMPLATE template0'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname= 'telemetry')\gexec
+    \c telemetry
+    GRANT ALL PRIVILEGES ON DATABASE telemetry TO telemetry;
+    GRANT ALL PRIVILEGES ON DATABASE telemetry TO bi_team;
