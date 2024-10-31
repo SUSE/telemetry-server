@@ -8,18 +8,22 @@ import (
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 )
 
-const defaultTelemetryTableColumns = `(
-	id INTEGER NOT NULL PRIMARY KEY,
-	clientId INTEGER NOT NULL,
-	customerId INTEGER NOT NULL,
-	telemetryId VARCHAR(64) NOT NULL,
-	telemetryType VARCHAR(64) NOT NULL,
-	tagSetId INTEGER NULL,
-	timestamp VARCHAR(32) NOT NULL,
-	staged BOOLEAN DEFAULT false,
-	dataItem BLOB NOT NULL,
-	FOREIGN KEY (tagSetId) REFERENCES tagSets (id)
-)`
+var defaultTelemetryTableSpec = TableSpec{
+	Name: "telemetryData",
+	Columns: []TableSpecColumn{
+		// common fields
+		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
+		{Name: "clientId", Type: "INTEGER"},
+		{Name: "customerId", Type: "INTEGER"},
+		{Name: "telemetryId", Type: "VARCHAR"},
+		{Name: "telemetryType", Type: "VARCHAR"},
+		{Name: "tagSetId", Type: "INTEGER", Nullable: true},
+		{Name: "timestamp", Type: "VARCHAR"},
+
+		// table specific fields
+		{Name: "dataItem", Type: "TEXT"},
+	},
+}
 
 type DefaultTelemetryDataRow struct {
 	// Embed the common rows
@@ -35,52 +39,13 @@ func (t *DefaultTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHd
 	return
 }
 
-func (t *DefaultTelemetryDataRow) SetupDB(db *DbConnection) (err error) {
-	t.TelemetryDataCommon.SetupDB(db)
-
-	t.table = `telemetryData`
-
-	// prepare exists check statement
-	t.exists, err = t.db.Conn.Prepare(
-		`SELECT id, customerId, telemetryType, tagSetId, dataItem FROM telemetryData WHERE clientId = ? AND telemetryId = ? AND timestamp = ?`,
-	)
-	if err != nil {
-		slog.Error("exists statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	// prepare insert statement
-	t.insert, err = t.db.Conn.Prepare(
-		`INSERT INTO telemetryData(clientId, customerId, telemetryId, telemetryType, timestamp, tagSetId, dataItem) VALUES(?, ?, ?, ?, ?, ?, ?)`,
-	)
-	if err != nil {
-		slog.Error("insert statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	// prepare update statement
-	t.update, err = t.db.Conn.Prepare(
-		`UPDATE telemetryData SET clientId = ?, customerId = ?, telemetryId = ?, telemetryType = ?, timestamp = ?, tagSetId = ?, dataItem = ? WHERE id = ?`,
-	)
-	if err != nil {
-		slog.Error("update statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	// prepare delete statement
-	t.delete, err = t.db.Conn.Prepare(
-		`DELETE FROM telemetryData WHERE id = ?`,
-	)
-	if err != nil {
-		slog.Error("delete statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	return
+func (t *DefaultTelemetryDataRow) SetupDB(db *DbConnection) error {
+	t.tableSpec = &defaultTelemetryTableSpec
+	return t.TelemetryDataCommon.SetupDB(db)
 }
 
 func (t *DefaultTelemetryDataRow) TableName() string {
-	return t.table
+	return t.TableRowCommon.TableName()
 }
 
 func (t *DefaultTelemetryDataRow) RowId() int64 {
@@ -93,7 +58,35 @@ func (t *DefaultTelemetryDataRow) String() string {
 }
 
 func (t *DefaultTelemetryDataRow) Exists() bool {
-	row := t.exists.QueryRow(
+
+	stmt, err := t.SelectStmt(
+		// select columns
+		[]string{
+			"id",
+			"customerId",
+			"telemetryType",
+			"tagSetId",
+			"dataItem",
+		},
+		// match columns
+		[]string{
+			"clientId",
+			"telemetryId",
+			"timestamp",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"exists statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := t.DB().QueryRow(
+		stmt,
 		t.ClientId,
 		t.TelemetryId,
 		t.Timestamp,
@@ -110,7 +103,7 @@ func (t *DefaultTelemetryDataRow) Exists() bool {
 		if err != sql.ErrNoRows {
 			slog.Error(
 				"check for matching entry failed",
-				slog.String("table", t.table),
+				slog.String("table", t.TableName()),
 				slog.Int64("clientId", t.ClientId),
 				slog.String("telemetryId", t.TelemetryId),
 				slog.String("timestamp", t.Timestamp),
@@ -123,7 +116,29 @@ func (t *DefaultTelemetryDataRow) Exists() bool {
 }
 
 func (t *DefaultTelemetryDataRow) Insert() (err error) {
-	res, err := t.insert.Exec(
+	stmt, err := t.InsertStmt(
+		[]string{
+			"clientId",
+			"customerId",
+			"telemetryId",
+			"telemetryType",
+			"timestamp",
+			"tagSetId",
+			"dataItem",
+		},
+		"id",
+	)
+	if err != nil {
+		slog.Error(
+			"insert statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	row := t.DB().QueryRow(
+		stmt,
 		t.ClientId,
 		t.CustomerId,
 		t.TelemetryId,
@@ -132,36 +147,48 @@ func (t *DefaultTelemetryDataRow) Insert() (err error) {
 		t.TagSetId,
 		t.DataItem,
 	)
-	if err != nil {
+	if err = row.Scan(
+		&t.Id,
+	); err != nil {
 		slog.Error(
 			"insert failed",
-			slog.String("table", t.table),
+			slog.String("table", t.TableName()),
 			slog.Int64("clientId", t.ClientId),
 			slog.String("telemetryId", t.TelemetryId),
 			slog.String("timestamp", t.Timestamp),
 			slog.String("error", err.Error()),
 		)
-		return
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		slog.Error(
-			"LastInsertId() failed",
-			slog.String("table", t.table),
-			slog.Int64("clientId", t.ClientId),
-			slog.String("telemetryId", t.TelemetryId),
-			slog.String("timestamp", t.Timestamp),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-	t.Id = id
 
 	return
 }
 
 func (t *DefaultTelemetryDataRow) Update() (err error) {
-	_, err = t.update.Exec(
+	stmt, err := t.UpdateStmt(
+		[]string{
+			"clientId",
+			"customerId",
+			"telemetryId",
+			"telemetryType",
+			"timestamp",
+			"tagSetId",
+			"dataItem",
+		},
+		[]string{
+			"Id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"update statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = t.DB().Exec(
+		stmt,
 		t.ClientId,
 		t.CustomerId,
 		t.TelemetryId,
@@ -174,7 +201,7 @@ func (t *DefaultTelemetryDataRow) Update() (err error) {
 	if err != nil {
 		slog.Error(
 			"update failed",
-			slog.String("table", t.table),
+			slog.String("table", t.TableName()),
 			slog.Int64("id", t.Id),
 			slog.String("error", err.Error()),
 		)
@@ -183,13 +210,28 @@ func (t *DefaultTelemetryDataRow) Update() (err error) {
 }
 
 func (t *DefaultTelemetryDataRow) Delete() (err error) {
-	_, err = t.delete.Exec(
+	stmt, err := t.DeleteStmt(
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"delete statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = t.DB().Exec(
+		stmt,
 		t.Id,
 	)
 	if err != nil {
 		slog.Error(
 			"delete failed",
-			slog.String("table", t.table),
+			slog.String("table", t.TableName()),
 			slog.Int64("id", t.Id),
 			slog.String("error", err.Error()),
 		)

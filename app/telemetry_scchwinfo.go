@@ -11,34 +11,34 @@ import (
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 )
 
-const sccHwInfoTelemetryTableColumns = `(
-	id INTEGER NOT NULL PRIMARY KEY,
-	clientId INTEGER NOT NULL,
-	customerId INTEGER NOT NULL,
-	telemetryId VARCHAR(64) NOT NULL,
-	telemetryType VARCHAR(64) NOT NULL,
-	tagSetId INTEGER NULL,
-	timestamp VARCHAR(32) NOT NULL,
-	hostname VARCHAR NOT NULL,
-	distroTarget VARCHAR NOT NULL,
-	cpus INTEGER NOT NULL,
-	sockets INTEGER NOT NULL,
-	memTotal INTEGER NOT NULL,
-	arch VARCHAR NOT NULL,
-	uuid VARCHAR NOT NULL,
-	hypervisor VARCHAR NULL,
-	cloudProvider VARCHAR NULL
-)`
+var sccHwInfoTelemetryTableSpec = TableSpec{
+	Name: "telemetrySccHwInfo",
+	Columns: []TableSpecColumn{
+		// common fields
+		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
+		{Name: "clientId", Type: "INTEGER"},
+		{Name: "customerId", Type: "INTEGER"},
+		{Name: "telemetryId", Type: "VARCHAR"},
+		{Name: "telemetryType", Type: "VARCHAR"},
+		{Name: "tagSetId", Type: "INTEGER", Nullable: true},
+		{Name: "timestamp", Type: "VARCHAR"},
+
+		// telemetry type specific fields
+		{Name: "hostname", Type: "VARCHAR"},
+		{Name: "distroTarget", Type: "VARCHAR"},
+		{Name: "cpus", Type: "INTEGER"},
+		{Name: "sockets", Type: "INTEGER"},
+		{Name: "memTotal", Type: "INTEGER"},
+		{Name: "arch", Type: "VARCHAR"},
+		{Name: "uuid", Type: "VARCHAR"},
+		{Name: "hypervisor", Type: "VARCHAR", Nullable: true},
+		{Name: "cloudProvider", Type: "VARCHAR", Nullable: true},
+	},
+}
 
 type SccHwInfoTelemetryDataRow struct {
 	TelemetryDataCommon
-	//Id            int64  `json:"id"`
-	//ClientId      int64  `json:"clientId"`
-	//CustomerId    string `json:"customerId"`
-	//TelemetryId   string `json:"telemetryId"`
-	//TelemetryType string `json:"telemetryType"`
-	//Timestamp     string `json:"timestamp"`
-	//TagSetId      int 64 `json:"tagSetId"`
+
 	Hostname      string `json:"hostname"`
 	DistroTarget  string `json:"distroTarget"`
 	Cpus          int64  `json:"cpus"`
@@ -160,52 +160,13 @@ func (t *SccHwInfoTelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, b
 	return
 }
 
-func (t *SccHwInfoTelemetryDataRow) SetupDB(db *DbConnection) (err error) {
-	t.TelemetryDataCommon.SetupDB(db)
-
-	t.table = `telemetrySccHwInfo`
-
-	// prepare exists check statement
-	t.exists, err = t.db.Conn.Prepare(
-		`SELECT id, customerId, telemetryType, tagSetId, hostname, distroTarget, cpus, sockets, memTotal, arch, uuid, hypervisor, cloudProvider FROM telemetrySccHwInfo WHERE clientId = ? AND telemetryId = ? AND timestamp = ?`,
-	)
-	if err != nil {
-		slog.Error("exists statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	// prepare insert statement
-	t.insert, err = t.db.Conn.Prepare(
-		`INSERT INTO telemetrySccHwInfo(clientId, customerId, telemetryId, telemetryType, timestamp, tagSetId, hostname, distroTarget, cpus, sockets, memTotal, arch, uuid, hypervisor, cloudProvider) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-	)
-	if err != nil {
-		slog.Error("insert statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	// prepare update statement
-	t.update, err = t.db.Conn.Prepare(
-		`UPDATE telemetrySccHwInfo SET clientId = ?, customerId = ?, telemetryId = ?, telemetryType = ?, timestamp = ?, tagSetId = ?, hostname = ?, distroTarget = ?, cpus = ?, sockets = ?, memTotal = ?, arch = ?, uuid = ?, hypervisor = ?, cloudProvider = ? WHERE id = ?`,
-	)
-	if err != nil {
-		slog.Error("update statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	// prepare delete statement
-	t.delete, err = t.db.Conn.Prepare(
-		`DELETE FROM telemetrySccHwInfo WHERE id = ?`,
-	)
-	if err != nil {
-		slog.Error("delete statement prep failed", slog.String("table", t.table), slog.String("error", err.Error()))
-		return
-	}
-
-	return
+func (t *SccHwInfoTelemetryDataRow) SetupDB(db *DbConnection) error {
+	t.tableSpec = &sccHwInfoTelemetryTableSpec
+	return t.TelemetryDataCommon.SetupDB(db)
 }
 
 func (t *SccHwInfoTelemetryDataRow) TableName() string {
-	return t.table
+	return t.TableRowCommon.TableName()
 }
 
 func (t *SccHwInfoTelemetryDataRow) RowId() int64 {
@@ -218,7 +179,42 @@ func (t *SccHwInfoTelemetryDataRow) String() string {
 }
 
 func (t *SccHwInfoTelemetryDataRow) Exists() bool {
-	row := t.exists.QueryRow(
+	stmt, err := t.SelectStmt(
+		// select columns
+		[]string{
+			"id",
+			"customerId",
+			"telemetryType",
+			"tagSetId",
+			"hostname",
+			"distroTarget",
+			"cpus",
+			"sockets",
+			"memTotal",
+			"arch",
+			"uuid",
+			"hypervisor",
+			"cloudProvider",
+		},
+		// match columns
+		[]string{
+			"clientId",
+			"telemetryId",
+			"timestamp",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"exists statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := t.DB().QueryRow(
+		stmt,
 		t.ClientId,
 		t.TelemetryId,
 		t.Timestamp,
@@ -243,7 +239,7 @@ func (t *SccHwInfoTelemetryDataRow) Exists() bool {
 		if err != sql.ErrNoRows {
 			slog.Error(
 				"check for matching entry failed",
-				slog.String("table", t.table),
+				slog.String("table", t.TableName()),
 				slog.Int64("clientId", t.ClientId),
 				slog.String("telemetryId", t.TelemetryId),
 				slog.String("timestamp", t.Timestamp),
@@ -256,7 +252,37 @@ func (t *SccHwInfoTelemetryDataRow) Exists() bool {
 }
 
 func (t *SccHwInfoTelemetryDataRow) Insert() (err error) {
-	res, err := t.insert.Exec(
+	stmt, err := t.InsertStmt(
+		[]string{
+			"clientId",
+			"customerId",
+			"telemetryId",
+			"telemetryType",
+			"timestamp",
+			"tagSetId",
+			"hostname",
+			"distroTarget",
+			"cpus",
+			"sockets",
+			"memTotal",
+			"arch",
+			"uuid",
+			"hypervisor",
+			"cloudProvider",
+		},
+		"id",
+	)
+	if err != nil {
+		slog.Error(
+			"insert statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	row := t.DB().QueryRow(
+		stmt,
 		t.ClientId,
 		t.CustomerId,
 		t.TelemetryId,
@@ -273,36 +299,56 @@ func (t *SccHwInfoTelemetryDataRow) Insert() (err error) {
 		t.Hypervisor,
 		t.CloudProvider,
 	)
-	if err != nil {
+	if err = row.Scan(
+		&t.Id,
+	); err != nil {
 		slog.Error(
 			"insert failed",
-			slog.String("table", t.table),
+			slog.String("table", t.TableName()),
 			slog.Int64("clientId", t.ClientId),
 			slog.String("telemetryId", t.TelemetryId),
 			slog.String("timestamp", t.Timestamp),
 			slog.String("error", err.Error()),
 		)
-		return
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		slog.Error(
-			"LastInsertId() failed",
-			slog.String("table", t.table),
-			slog.Int64("clientId", t.ClientId),
-			slog.String("telemetryId", t.TelemetryId),
-			slog.String("timestamp", t.Timestamp),
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-	t.Id = id
 
 	return
 }
 
 func (t *SccHwInfoTelemetryDataRow) Update() (err error) {
-	_, err = t.update.Exec(
+	stmt, err := t.UpdateStmt(
+		[]string{
+			"clientId",
+			"customerId",
+			"telemetryId",
+			"telemetryType",
+			"timestamp",
+			"tagSetId",
+			"hostname",
+			"distroTarget",
+			"cpus",
+			"sockets",
+			"memTotal",
+			"arch",
+			"uUID",
+			"hypervisor",
+			"cloudProvider",
+		},
+		[]string{
+			"Id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"update statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = t.DB().Exec(
+		stmt,
 		t.ClientId,
 		t.CustomerId,
 		t.TelemetryId,
@@ -323,22 +369,38 @@ func (t *SccHwInfoTelemetryDataRow) Update() (err error) {
 	if err != nil {
 		slog.Error(
 			"update failed",
-			slog.String("table", t.table),
+			slog.String("table", t.TableName()),
 			slog.Int64("id", t.Id),
 			slog.String("error", err.Error()),
 		)
 	}
+
 	return
 }
 
 func (t *SccHwInfoTelemetryDataRow) Delete() (err error) {
-	_, err = t.delete.Exec(
+	stmt, err := t.DeleteStmt(
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"delete statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = t.DB().Exec(
+		stmt,
 		t.Id,
 	)
 	if err != nil {
 		slog.Error(
 			"delete failed",
-			slog.String("table", t.table),
+			slog.String("table", t.TableName()),
 			slog.Int64("id", t.Id),
 			slog.String("error", err.Error()),
 		)

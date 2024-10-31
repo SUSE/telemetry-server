@@ -37,7 +37,6 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 
 	// register the client
 	client := new(ClientsRow)
-	client.InitAuthentication(&caReq)
 	if err = client.SetupDB(&a.OperationalDB); err != nil {
 		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
@@ -45,6 +44,7 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 	}
 
 	// confirm that the client has been registered
+	client.InitAuthentication(&caReq)
 	if !client.Exists() {
 		// client needs to register
 		ar.SetWwwAuthRegister()
