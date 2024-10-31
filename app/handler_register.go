@@ -63,8 +63,8 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	// initialise a client registration response
 	crResp := restapi.ClientRegistrationResponse{
-		ClientId:  client.Id,
-		AuthToken: client.AuthToken,
+		ClientId:         client.Id,
+		AuthToken:        client.AuthToken,
 		RegistrationDate: client.RegistrationDate,
 	}
 	ar.Log.Debug("Response", slog.Any("crResp", crResp))
