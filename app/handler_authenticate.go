@@ -86,7 +86,7 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 	caResp := restapi.ClientAuthenticationResponse{
 		ClientId:  client.Id,
 		AuthToken: client.AuthToken,
-		IssueDate: client.RegistrationDate,
+		RegistrationDate: client.RegistrationDate,
 	}
 	ar.Log.Debug("Response", slog.Any("caResp", caResp))
 
