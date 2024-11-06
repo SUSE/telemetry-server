@@ -34,6 +34,7 @@ spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # TODO: Transfer responsability of initializing Postgres instance to CI/CD pipeline
       initContainers:
         - name: init-rds-postgres
           image: "{{ .Values.rdsInit.image.repository }}:{{ .Values.rdsInit.image.tag }}"
@@ -42,8 +43,10 @@ spec:
             - -c
             - |
               until pg_isready -h rds-postgres -U $POSTGRES_USER; do sleep 1; done
-              sed -i "s|__BI_TEAM_PASSWORD__|${BI_TEAM_PASSWORD}|g" /scripts/init.sql
-              psql -h rds-postgres -U $POSTGRES_USER -f /scripts/init.sql
+              cp /scripts/init.sql /tmp-scripts/tmp-init.sql
+              chmod 600 /tmp-scripts/tmp-init.sql
+              sed -i.bak -e "s|__BI_TEAM_PASSWORD__|${BI_TEAM_PASSWORD}|g" -e "s|__TELEMETRY_PASSWORD__|${TELEMETRY_PASSWORD}|g" /tmp-scripts/tmp-init.sql
+              psql -h rds-postgres -U $POSTGRES_USER -f /tmp-scripts/tmp-init.sql
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -60,10 +63,17 @@ spec:
                 secretKeyRef:
                   name: rds-postgres-config
                   key: BI_TEAM_USER_PASS
+            - name: TELEMETRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: TELEMETRY_USER_PASS
           volumeMounts:
             - name: init-sql
               mountPath: /scripts/init.sql
               subPath: init.sql
+            - name: writable-dir
+              mountPath: /tmp-scripts
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

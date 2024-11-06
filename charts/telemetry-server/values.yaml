@@ -6,9 +6,9 @@ replicaCount: 1
 
 image:
   repository: docker.io/gbuenodevsuse/telemetry-server #until we have an image built in our build system
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: latest
+  tag: test2
 
 imagePullSecrets: []
 nameOverride: ""
@@ -44,7 +44,6 @@ securityContext: {}
 service:
   type: "ClusterIP"
   port: 9999
-
 
 ingress:
   # If set to false, ingress will not be created
@@ -106,11 +105,16 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-# Additional volumes on the output Deployment definition.
+  # Additional volumes on the output Deployment definition.
 volumes:
 - name: cfg-mnt
   configMap:
     name: telemetry-server-config
+- name: init-sql
+  configMap:
+    name: rds-postgres-init
+- name: writable-dir
+  emptyDir: {}
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
@@ -130,19 +134,32 @@ config:
     port: 9999
   dbs:
     telemetry:
-      driver: sqlite3
-      params: /var/lib/tsvc/data/telemetry.db
+      driver: postgres
+      params: "<TELEMETRY_DB_CONNECTION_STRING>"
     operational:
       driver: postgres
-      params: "postgres://postgres:telemetry@postgres:5432/operational"
+      params: "<OPERATIONAL_DB_CONNECTION_STRING>"
     staging:
-      driver: sqlite3
-      params: /var/lib/tsvc/data/staging.db
+      driver: postgres
+      params: "<STAGING_DB_CONNECTION_STRING>"
   logging:
-    level: info
+    level: debug
     location: stderr
     style: text
   # This is for testing purposes only
   auth:
     secret: VGVzdGluZ1NlY3JldAo=
     duration: 1w
+
+# TODO: Transfer responsability of initializing Postgres instance to CI/CD pipeline
+rdsInit:
+  image:
+    repository: postgres
+    tag: 16
+  postgres:
+    host: <POSTGRES_HOST>
+    db: <POSTGRES_DB>
+    user: <POSTGRES_USER>
+    password: <POSTGRES_PASS>
+    biTeamPassword: <BI_USER_PASS>
+    telemetryPassword: <TELEMETRY_USER_PASS>
