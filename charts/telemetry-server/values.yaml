@@ -157,9 +157,9 @@ rdsInit:
     repository: postgres
     tag: 16
   postgres:
-    host: <POSTGRES_HOST>
-    db: <POSTGRES_DB>
-    user: <POSTGRES_USER>
-    password: <POSTGRES_PASS>
-    biTeamPassword: <BI_USER_PASS>
-    telemetryPassword: <TELEMETRY_USER_PASS>
+    host: "<POSTGRES_HOST>"
+    db: "<POSTGRES_DB>"
+    user: "<POSTGRES_USER>"
+    password: "<POSTGRES_PASS>"
+    biTeamPassword: "<BI_USER_PASS>"
+    telemetryPassword: "<TELEMETRY_USER_PASS>"
