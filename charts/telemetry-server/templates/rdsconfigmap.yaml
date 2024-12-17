@@ -37,3 +37,4 @@ data:
     GRANT ALL ON SCHEMA public TO telemetry;
     GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO telemetry;
     ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO telemetry;
+    GRANT ALL PRIVILEGES ON TABLE telemetrydata TO "bi_team";
