@@ -13,6 +13,5 @@ var operationalTables = []TableSpec{
 // Telemetry DB Tables
 var telemetryTables = []TableSpec{
 	tagSetsTableSpec,
-	defaultTelemetryTableSpec,
-	sccHwInfoTelemetryTableSpec,
+	telemetryTableSpec,
 }
