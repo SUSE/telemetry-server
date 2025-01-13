@@ -477,21 +477,13 @@ func (t *TableRowCommon) DeleteStmt(whereCols []string) (stmt string, err error)
 	return
 }
 
-type TableRowCommonHandler interface {
+type TableRowHandler interface {
+	//TableRowCommonHandler
 	// Setup DB access
 	SetupDB(*DbConnection) error
 
 	// Retrieve the TableName
 	TableName() string
-}
-
-type TableRowHandler interface {
-	TableRowCommonHandler
-	// Setup DB access
-	//SetupDB(*DbConnection) error
-
-	// Retrieve the TableName
-	//TableName() string
 
 	// Retrieve the RowId
 	RowId() int64

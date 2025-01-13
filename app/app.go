@@ -152,7 +152,6 @@ type App struct {
 	StagingDB     DbConnection
 	Address       ServerAddress
 	Handler       http.Handler
-	Xformers      TelemetryRowXformMapper
 	LogManager    *logging.LogManager
 	AuthManager   *AuthManager
 }
@@ -174,11 +173,6 @@ func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App
 	a.TelemetryDB.Setup("Telemetry", cfg.DataBases.Telemetry)
 	a.OperationalDB.Setup("Operational", cfg.DataBases.Operational)
 	a.StagingDB.Setup("Staging", cfg.DataBases.Staging)
-
-	// setup telemetry transformations
-	a.Xformers = new(TelemetryRowXformMap)
-	a.Xformers.SetDefault(new(DefaultTelemetryDataRow))
-	a.Xformers.Register("SLE-SERVER-SCCHwInfo", new(SccHwInfoTelemetryDataRow))
 
 	// setup address
 	a.Address.Setup(cfg.API)
@@ -252,12 +246,6 @@ func (a *App) Initialize() error {
 
 	if err := a.TelemetryDB.EnsureTableSpecsExist(telemetryTables); err != nil {
 		slog.Error("Telemetry DB tables setup failed", slog.String("error", err.Error()))
-		return err
-	}
-
-	// telemetry type specific transform setup
-	if err := a.Xformers.SetupDB(&a.TelemetryDB); err != nil {
-		slog.Error("Telemetry transformers setup failed", slog.String("error", err.Error()))
 		return err
 	}
 
