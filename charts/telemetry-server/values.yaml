@@ -105,7 +105,7 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-  # Additional volumes on the output Deployment definition.
+# Additional volumes on the output Deployment definition.
 volumes:
 - name: cfg-mnt
   configMap:
