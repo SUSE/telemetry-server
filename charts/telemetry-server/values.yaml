@@ -51,16 +51,20 @@ ingress:
   # options: true, false
   enabled: true
   className: "nginx"
-  annotations: {}
-  # kubernetes.io/ingress.class: nginx
-  # kubernetes.io/tls-acme: "true"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/tls-acme: "true"
+
   hosts:
-  - host: telemetry.example.org #Fully qualified hostname to access telemetry server
+  - host: telemetry.op-aws-eu-dmz-1-ingress.op.suse.org #OpenPlatform wildcard for fully qualified hostname
     paths:
     - path: /
-      pathType: ImplementationSpecific
+      pathType: Prefix
 
-  tls: []
+  tls:
+    - hosts:
+      - telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+      secretName: tls-telemetry-ingress
 
 # OpenPlatform requires pods resources to be defined
 resources:

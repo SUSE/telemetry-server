@@ -16,6 +16,6 @@ spec:
     - port: 9999
       targetPort: {{ .Values.service.port }}
       protocol: TCP
-      name: http
+      name: https
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}

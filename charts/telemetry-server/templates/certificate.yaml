@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: tls-telemetry-ingress
+spec:
+  secretName: tls-telemetry-ingress
+  duration: 720h # 30 days. The max duration is set by the CA at 30 days.
+  renewBefore: 168h # 7d
+  subject:
+    organizations:
+      - telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+  commonName: telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+  dnsNames:
+    - telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+  issuerRef:
+    name: suse-internal-ca
+    kind: ClusterIssuer
+    group: cert-manager.io
