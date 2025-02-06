@@ -8,8 +8,8 @@ spec:
   renewBefore: 168h # 7d
   subject:
     organizations:
-      - telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
-  commonName: telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+      - "<TELEMETRY_SERVER_HOST"
+  commonName: "<TELEMETRY_SERVER_HOST"
   isCA: false
   privateKey:
     algorithm: RSA
@@ -18,7 +18,7 @@ spec:
   usages:
     - server auth
   dnsNames:
-    - telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+    - "<TELEMETRY_SERVER_HOST"
   issuerRef:
     name: suse-internal-ca
     kind: ClusterIssuer

@@ -56,14 +56,14 @@ ingress:
     kubernetes.io/tls-acme: "true"
 
   hosts:
-  - host: telemetry.op-aws-eu-dmz-1-ingress.op.suse.org #OpenPlatform wildcard for fully qualified hostname
+  - host: "<TELEMETRY_SERVER_HOST>" #Fully qualified hostname to access telemetry server
     paths:
     - path: /
       pathType: Prefix
 
   tls:
     - hosts:
-      - telemetry.op-aws-eu-dmz-1-ingress.op.suse.org
+      - "<TELEMETRY_SERVER_HOST>"
       secretName: tls-telemetry-ingress
 
 # OpenPlatform requires pods resources to be defined
