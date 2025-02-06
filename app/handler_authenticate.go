@@ -28,9 +28,9 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	if caReq.ClientId <= 0 {
+	if caReq.RegistrationId <= 0 {
 		ar.SetWwwAuthRegister()
-		ar.ErrorResponse(http.StatusUnauthorized, "Invalid ClientId value provided")
+		ar.ErrorResponse(http.StatusUnauthorized, "Invalid registrationId value provided")
 		return
 	}
 	ar.Log.Debug("Unmarshaled", slog.Any("caReq", &caReq))
@@ -52,17 +52,17 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 		return
 	}
 
-	// confirm that the provided clientInstanceId SHA matches the registered one
-	instIdHash := client.ClientInstanceId.Hash(caReq.InstIdHash.Method)
-	if !instIdHash.Match(&caReq.InstIdHash) {
+	// confirm that the provided registration hash matches the registered one
+	regHash := client.GetClientRegistration().Hash(caReq.RegHash.Method)
+	if !regHash.Match(&caReq.RegHash) {
 		ar.Log.Error(
-			"ClientInstanceId hash mismatch",
-			slog.String("Req Hash", caReq.InstIdHash.String()),
-			slog.String("DB Hash", instIdHash.String()),
+			"Registration hash mismatch",
+			slog.String("Req Hash", caReq.RegHash.String()),
+			slog.String("DB Hash", regHash.String()),
 		)
 		// client needs to re-register
 		ar.SetWwwAuthRegister()
-		ar.ErrorResponse(http.StatusUnauthorized, "ClientInstanceId mismatch")
+		ar.ErrorResponse(http.StatusUnauthorized, "Registration mismatch")
 		return
 	}
 
@@ -84,7 +84,7 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 
 	// initialise a client registration response
 	caResp := restapi.ClientAuthenticationResponse{
-		ClientId:         client.Id,
+		RegistrationId:   client.Id,
 		AuthToken:        client.AuthToken,
 		RegistrationDate: client.RegistrationDate,
 	}

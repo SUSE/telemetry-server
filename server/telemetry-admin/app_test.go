@@ -19,14 +19,14 @@ import (
 
 type AppTestSuite struct {
 	suite.Suite
-	app              *app.App
-	config           *app.Config
-	router           *mux.Router
-	path             string
-	authToken        string
-	clientInstanceId types.ClientInstanceId
-	clientInstIdHash types.ClientInstanceIdHash
-	clientId         int64
+	app           *app.App
+	config        *app.Config
+	router        *mux.Router
+	path          string
+	authToken     string
+	clientReg     types.ClientRegistration
+	clientRegHash types.ClientRegistrationHash
+	regId         int64
 }
 
 // run before each test
@@ -74,23 +74,31 @@ auth:
 
 	// setup the client entry in the clients table
 	s.authToken, _ = s.app.AuthManager.CreateToken()
-	s.clientInstanceId = `PQR0123456789`
-	s.clientInstIdHash = types.ClientInstanceIdHash{
+	s.clientReg = types.ClientRegistration{
+		ClientId:   "1b504dca-bd71-424f-87f6-21eb7f5745db",
+		SystemUUID: "3f97d439-5212-4688-af22-ad0559a626cb",
+		Timestamp:  "2024-06-30T23:59:59.999999999Z",
+	}
+	s.clientRegHash = types.ClientRegistrationHash{
 		Method: "sha256",
-		Value:  "279b3ce1c73f3598ee36cde0a38fa6687aa33f50935a8b10a0a6608d3084d22a",
+		Value:  "56dad39883e6b69e68523e8991a9237422a13031fd5f136286045a3e9b79f3ce",
 	}
 	row := s.app.OperationalDB.Conn.QueryRow(
 		`INSERT INTO clients(`+
-			`clientInstanceId, `+
+			`clientId, `+
+			`systemUUID, `+
+			`clientTimestamp, `+
 			`registrationDate, `+
 			`authToken) `+
-			`VALUES(?, ?, ?) `+
+			`VALUES(?, ?, ?, ?, ?) `+
 			`RETURNING id`,
-		string(s.clientInstanceId),
+		s.clientReg.ClientId,
+		s.clientReg.SystemUUID,
+		s.clientReg.Timestamp,
 		"2024-07-01T00:00:00.000000000Z",
 		s.authToken,
 	)
-	if err := row.Scan(&s.clientId); err != nil {
+	if err := row.Scan(&s.regId); err != nil {
 		panic(fmt.Errorf("failed to setup test client entry in clients table: %s", err.Error()))
 	}
 }

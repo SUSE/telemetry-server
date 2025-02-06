@@ -22,7 +22,7 @@ func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.Telemet
 	}
 
 	reportStagingRow.Init(
-		fmt.Sprintf("%d", rHeader.ReportClientId),
+		fmt.Sprintf("%q", rHeader.ReportClientId),
 		rHeader.ReportId,
 		reqBody,
 	)

@@ -13,7 +13,9 @@ var clientsTableSpec = TableSpec{
 	Name: "clients",
 	Columns: []TableSpecColumn{
 		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
-		{Name: "clientInstanceId", Type: "VARCHAR"},
+		{Name: "clientId", Type: "VARCHAR"},
+		{Name: "systemUUID", Type: "VARCHAR", Nullable: true},
+		{Name: "clientTimestamp", Type: "VARCHAR"},
 		{Name: "registrationDate", Type: "VARCHAR"},
 		{Name: "authToken", Type: "VARCHAR"},
 	},
@@ -23,26 +25,38 @@ type ClientsRow struct {
 	// include common table row fields
 	TableRowCommon
 
-	Id               int64                  `json:"id"`
-	ClientInstanceId types.ClientInstanceId `json:"clientInstanceId"`
-	RegistrationDate string                 `json:"registrationDate"`
-	AuthToken        string                 `json:"authToken"`
+	Id               int64  `json:"id"`
+	ClientId         string `json:"clientId"`
+	SystemUUID       string `json:"systemUUID"`
+	ClientTimestamp  string `json:"clientTimestamp"`
+	RegistrationDate string `json:"registrationDate"`
+	AuthToken        string `json:"authToken"`
 }
 
 func (c *ClientsRow) InitAuthentication(caReq *restapi.ClientAuthenticationRequest) {
-	c.InitClientId(caReq.ClientId)
+	c.InitRegistrationId(caReq.RegistrationId)
 }
 
-func (c *ClientsRow) InitClientId(clientId int64) {
-	c.Id = clientId
+func (c *ClientsRow) InitRegistrationId(registrationId int64) {
+	c.Id = registrationId
 }
 
 func (c *ClientsRow) InitRegistration(crReq *restapi.ClientRegistrationRequest) {
-	c.InitClientInstanceId(&crReq.ClientInstanceId)
+	c.InitClientRegistration(&crReq.ClientRegistration)
 }
 
-func (c *ClientsRow) InitClientInstanceId(instId *types.ClientInstanceId) {
-	c.ClientInstanceId = *instId
+func (c *ClientsRow) InitClientRegistration(reg *types.ClientRegistration) {
+	c.ClientId = reg.ClientId
+	c.SystemUUID = reg.SystemUUID
+	c.ClientTimestamp = reg.Timestamp
+}
+
+func (c *ClientsRow) GetClientRegistration() *types.ClientRegistration {
+	return &types.ClientRegistration{
+		ClientId:   c.ClientId,
+		SystemUUID: c.SystemUUID,
+		Timestamp:  c.ClientTimestamp,
+	}
 }
 
 func (c *ClientsRow) TableName() string {
@@ -67,7 +81,9 @@ func (c *ClientsRow) Exists() bool {
 	stmt, err := c.SelectStmt(
 		// select columns
 		[]string{
-			"clientInstanceId",
+			"clientId",
+			"systemUUID",
+			"clientTimestamp",
 			"registrationDate",
 			"authToken",
 		},
@@ -90,7 +106,9 @@ func (c *ClientsRow) Exists() bool {
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
-		&c.ClientInstanceId,
+		&c.ClientId,
+		&c.SystemUUID,
+		&c.ClientTimestamp,
 		&c.RegistrationDate,
 		&c.AuthToken,
 	); err != nil {
@@ -98,7 +116,9 @@ func (c *ClientsRow) Exists() bool {
 			slog.Error(
 				"check for matching entry failed",
 				slog.String("table", c.TableName()),
-				slog.String("clientInstanceId", c.ClientInstanceId.String()),
+				slog.String("clientId", c.ClientId),
+				slog.String("systemUUID", c.SystemUUID),
+				slog.String("clientTimestamp", c.ClientTimestamp),
 				slog.String("error", err.Error()),
 			)
 		}
@@ -107,7 +127,7 @@ func (c *ClientsRow) Exists() bool {
 	return true
 }
 
-func (c *ClientsRow) InstIdExists() bool {
+func (c *ClientsRow) RegistrationExists() bool {
 	stmt, err := c.SelectStmt(
 		// select columns
 		[]string{
@@ -117,20 +137,27 @@ func (c *ClientsRow) InstIdExists() bool {
 		},
 		// match columns
 		[]string{
-			"clientInstanceId",
+			"clientId",
+			"systemUUID",
+			"clientTimestamp",
 		},
 		SelectOpts{}, // no special options
 	)
 	if err != nil {
 		slog.Error(
-			"instIdExists statement generation failed",
+			"registrationExists statement generation failed",
 			slog.String("table", c.TableName()),
 			slog.String("error", err.Error()),
 		)
 		panic(err)
 	}
 
-	row := c.DB().QueryRow(stmt, c.ClientInstanceId)
+	row := c.DB().QueryRow(
+		stmt,
+		c.ClientId,
+		c.SystemUUID,
+		c.ClientTimestamp,
+	)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -142,7 +169,9 @@ func (c *ClientsRow) InstIdExists() bool {
 			slog.Error(
 				"check for matching entry failed",
 				slog.String("table", c.TableName()),
-				slog.String("clientInstanceId", c.ClientInstanceId.String()),
+				slog.String("clientId", c.ClientId),
+				slog.String("systemUUID", c.SystemUUID),
+				slog.String("clientTimestamp", c.ClientTimestamp),
 				slog.String("error", err.Error()),
 			)
 		}
@@ -154,7 +183,9 @@ func (c *ClientsRow) InstIdExists() bool {
 func (c *ClientsRow) Insert() (err error) {
 	stmt, err := c.InsertStmt(
 		[]string{
-			"clientInstanceId",
+			"clientId",
+			"systemUUID",
+			"clientTimestamp",
 			"registrationDate",
 			"authToken",
 		},
@@ -170,7 +201,9 @@ func (c *ClientsRow) Insert() (err error) {
 	}
 	row := c.DB().QueryRow(
 		stmt,
-		c.ClientInstanceId,
+		c.ClientId,
+		c.SystemUUID,
+		c.ClientTimestamp,
 		c.RegistrationDate,
 		c.AuthToken,
 	)
@@ -180,7 +213,9 @@ func (c *ClientsRow) Insert() (err error) {
 		slog.Error(
 			"insert failed",
 			slog.String("table", c.TableName()),
-			slog.Any("clientInstanceId", c.ClientInstanceId),
+			slog.String("clientId", c.ClientId),
+			slog.String("systemUUID", c.SystemUUID),
+			slog.String("clientTimestamp", c.ClientTimestamp),
 			slog.String("error", err.Error()),
 		)
 	}
@@ -191,7 +226,9 @@ func (c *ClientsRow) Insert() (err error) {
 func (c *ClientsRow) Update() (err error) {
 	stmt, err := c.UpdateStmt(
 		[]string{
-			"clientInstanceId",
+			"clientId",
+			"systemUUID",
+			"clientTimestamp",
 			"registrationDate",
 			"authToken",
 		},
@@ -209,7 +246,9 @@ func (c *ClientsRow) Update() (err error) {
 	}
 	_, err = c.DB().Exec(
 		stmt,
-		c.ClientInstanceId,
+		c.ClientId,
+		c.SystemUUID,
+		c.ClientTimestamp,
 		c.RegistrationDate,
 		c.AuthToken,
 		c.Id,

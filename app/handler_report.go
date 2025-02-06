@@ -16,11 +16,11 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	ar.Log.Info("Processing")
 
 	// retrieve required headers
-	hdrClientId := ar.GetClientId()
+	hdrRegistrationId := ar.GetRegistrationId()
 	token := ar.GetAuthToken()
 
-	// missing clientId or token suggests client needs to register
-	if (hdrClientId == "") || (token == "") {
+	// missing registrationId or token suggests client needs to register
+	if (hdrRegistrationId == "") || (token == "") {
 		// client needs to register
 		ar.SetWwwAuthRegister()
 		ar.ErrorResponse(http.StatusUnauthorized, "Client registration required")
@@ -40,12 +40,12 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		slog.String("token", token),
 	)
 
-	// verify that the provided client id is a valid number
-	clientId, err := strconv.ParseInt(hdrClientId, 0, 64)
+	// verify that the provided registration id is a valid number
+	registrationId, err := strconv.ParseInt(hdrRegistrationId, 0, 64)
 	if err != nil {
 		// client needs to register
 		ar.SetWwwAuthRegister()
-		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Client Id")
+		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Registration Id")
 		return
 	}
 
@@ -57,11 +57,11 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		return
 	}
 
-	client.InitClientId(clientId)
+	client.InitRegistrationId(registrationId)
 	if !client.Exists() {
 		// client needs to register
 		ar.SetWwwAuthRegister()
-		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Client Id")
+		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Registration Id")
 		return
 	}
 
@@ -76,8 +76,8 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 
 	ar.Log.Debug(
-		"Client Authorizated",
-		slog.Int64("clientId", clientId),
+		"Client Authorized",
+		slog.Int64("registrationId", registrationId),
 	)
 
 	// handle payload compression
