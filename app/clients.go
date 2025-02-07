@@ -180,6 +180,59 @@ func (c *ClientsRow) RegistrationExists() bool {
 	return true
 }
 
+func (c *ClientsRow) ClientIdExists() bool {
+	stmt, err := c.SelectStmt(
+		// select columns
+		[]string{
+			"id",
+			"systemUUID",
+			"clientTimestamp",
+			"registrationDate",
+			"authToken",
+		},
+		// match columns
+		[]string{
+			"clientId",
+		},
+		SelectOpts{}, // no special options
+	)
+	if err != nil {
+		slog.Error(
+			"registrationExists statement generation failed",
+			slog.String("table", c.TableName()),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	row := c.DB().QueryRow(
+		stmt,
+		c.ClientId,
+	)
+	// if the entry was found, all fields not used to find the entry will have
+	// been updated to match what is in the DB
+	if err := row.Scan(
+		&c.Id,
+		&c.SystemUUID,
+		&c.ClientTimestamp,
+		&c.RegistrationDate,
+		&c.AuthToken,
+	); err != nil {
+		if err != sql.ErrNoRows {
+			slog.Error(
+				"check for matching entry failed",
+				slog.String("table", c.TableName()),
+				slog.String("clientId", c.ClientId),
+				slog.String("systemUUID", c.SystemUUID),
+				slog.String("clientTimestamp", c.ClientTimestamp),
+				slog.String("error", err.Error()),
+			)
+		}
+		return false
+	}
+	return true
+}
+
 func (c *ClientsRow) Insert() (err error) {
 	stmt, err := c.InsertStmt(
 		[]string{

@@ -49,8 +49,16 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	}
 
 	client.InitRegistration(&crReq)
+	// check if the supplied registration already exists, e.g. cloned system
 	if client.RegistrationExists() {
 		ar.ErrorResponse(http.StatusConflict, "specified registration already exists")
+		return
+	}
+
+	// check if the supplied registration's clientID already exists, e.g. a new
+	// client generated the same UUID value that an existing client is using
+	if client.ClientIdExists() {
+		ar.ErrorResponse(http.StatusConflict, "specified registration clientId already exists")
 		return
 	}
 
