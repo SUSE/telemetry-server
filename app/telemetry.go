@@ -78,7 +78,7 @@ var telemetryTableSpec = TableSpec{
 	Name: "telemetryData",
 	Columns: []TableSpecColumn{
 		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
-		{Name: "clientId", Type: "INTEGER"},
+		{Name: "clientId", Type: "VARCHAR"},
 		{Name: "customerId", Type: "INTEGER"},
 		{Name: "telemetryId", Type: "VARCHAR"},
 		{Name: "telemetryType", Type: "VARCHAR"},
@@ -93,7 +93,7 @@ type TelemetryDataRow struct {
 
 	// public table fields
 	Id            int64  `json:"id"`
-	ClientId      int64  `json:"clientId"`
+	ClientId      string `json:"clientId"`
 	CustomerId    string `json:"customerId"`
 	TelemetryId   string `json:"telemetryId"`
 	TelemetryType string `json:"telemetryType"`
@@ -189,7 +189,7 @@ func (t *TelemetryDataRow) Exists() bool {
 			slog.Error(
 				"check for matching entry failed",
 				slog.String("table", t.TableName()),
-				slog.Int64("clientId", t.ClientId),
+				slog.String("clientId", t.ClientId),
 				slog.String("telemetryId", t.TelemetryId),
 				slog.String("timestamp", t.Timestamp),
 				slog.String("error", err.Error()),
@@ -238,7 +238,7 @@ func (t *TelemetryDataRow) Insert() (err error) {
 		slog.Error(
 			"insert failed",
 			slog.String("table", t.TableName()),
-			slog.Int64("clientId", t.ClientId),
+			slog.String("clientId", t.ClientId),
 			slog.String("telemetryId", t.TelemetryId),
 			slog.String("timestamp", t.Timestamp),
 			slog.String("error", err.Error()),

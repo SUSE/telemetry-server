@@ -64,8 +64,8 @@ func (ar *AppRequest) GetAuthToken() string {
 	return strings.TrimPrefix(ar.GetAuthorization(), "Bearer ")
 }
 
-func (ar *AppRequest) GetClientId() string {
-	return ar.GetHeader("X-Telemetry-Client-Id")
+func (ar *AppRequest) GetRegistrationId() string {
+	return ar.GetHeader("X-Telemetry-Registration-Id")
 }
 
 func (ar *AppRequest) SetHeader(header, value string) {

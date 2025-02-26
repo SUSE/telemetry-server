@@ -29,8 +29,13 @@ func (a *App) RegisterClient(ar *AppRequest) {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
-	if string(crReq.ClientInstanceId) == "" {
-		ar.ErrorResponse(http.StatusBadRequest, "no ClientInstanceId value provided")
+	// verify that clientId and timestamp are specified in registration
+	if string(crReq.ClientRegistration.ClientId) == "" {
+		ar.ErrorResponse(http.StatusBadRequest, "missing registration clientId")
+		return
+	}
+	if string(crReq.ClientRegistration.Timestamp) == "" {
+		ar.ErrorResponse(http.StatusBadRequest, "missing registration timestamp")
 		return
 	}
 	ar.Log.Debug("Unmarshaled", slog.Any("crReq", &crReq))
@@ -44,8 +49,16 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	}
 
 	client.InitRegistration(&crReq)
-	if client.InstIdExists() {
-		ar.ErrorResponse(http.StatusConflict, "specified clientInstanceId already exists")
+	// check if the supplied registration already exists, e.g. cloned system
+	if client.RegistrationExists() {
+		ar.ErrorResponse(http.StatusConflict, "specified registration already exists")
+		return
+	}
+
+	// check if the supplied registration's clientID already exists, e.g. a new
+	// client generated the same UUID value that an existing client is using
+	if client.ClientIdExists() {
+		ar.ErrorResponse(http.StatusConflict, "specified registration clientId already exists")
 		return
 	}
 
@@ -63,7 +76,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 
 	// initialise a client registration response
 	crResp := restapi.ClientRegistrationResponse{
-		ClientId:         client.Id,
+		RegistrationId:   client.Id,
 		AuthToken:        client.AuthToken,
 		RegistrationDate: client.RegistrationDate,
 	}

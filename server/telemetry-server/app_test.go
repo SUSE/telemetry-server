@@ -28,14 +28,14 @@ import (
 
 type AppTestSuite struct {
 	suite.Suite
-	app              *app.App
-	config           *app.Config
-	router           *mux.Router
-	path             string
-	authToken        string
-	clientInstanceId types.ClientInstanceId
-	clientInstIdHash types.ClientInstanceIdHash
-	clientId         int64
+	app           *app.App
+	config        *app.Config
+	router        *mux.Router
+	path          string
+	authToken     string
+	clientReg     types.ClientRegistration
+	clientRegHash types.ClientRegistrationHash
+	regId         int64
 }
 
 // run before each test
@@ -83,23 +83,31 @@ auth:
 
 	// setup the client entry in the clients table
 	s.authToken, _ = s.app.AuthManager.CreateToken()
-	s.clientInstanceId = `PQR0123456789`
-	s.clientInstIdHash = types.ClientInstanceIdHash{
+	s.clientReg = types.ClientRegistration{
+		ClientId:   "1b504dca-bd71-424f-87f6-21eb7f5745db",
+		SystemUUID: "3f97d439-5212-4688-af22-ad0559a626cb",
+		Timestamp:  "2024-06-30T23:59:59.999999999Z",
+	}
+	s.clientRegHash = types.ClientRegistrationHash{
 		Method: "sha256",
-		Value:  "279b3ce1c73f3598ee36cde0a38fa6687aa33f50935a8b10a0a6608d3084d22a",
+		Value:  "1a374d367946699bddce3c749ec755ce4b8859c4c9984f3c1f41460ce3bbed9c",
 	}
 	row := s.app.OperationalDB.Conn.QueryRow(
 		`INSERT INTO clients(`+
-			`clientInstanceId, `+
+			`clientId, `+
+			`systemUUID, `+
+			`clientTimestamp, `+
 			`registrationDate, `+
 			`authToken) `+
-			`VALUES(?, ?, ?) `+
+			`VALUES(?, ?, ?, ?, ?) `+
 			`RETURNING id`,
-		string(s.clientInstanceId),
+		s.clientReg.ClientId,
+		s.clientReg.SystemUUID,
+		s.clientReg.Timestamp,
 		"2024-07-01T00:00:00.000000000Z",
 		s.authToken,
 	)
-	if err := row.Scan(&s.clientId); err != nil {
+	if err := row.Scan(&s.regId); err != nil {
 		panic(fmt.Errorf("failed to setup test client entry in clients table: %s", err.Error()))
 	}
 }
@@ -187,15 +195,15 @@ func (t *AppTestSuite) TestRegisterClient() {
 
 	// Create a POST request with the necessary body
 	id := uuid.New().String()
-	body := `{"clientInstanceId":"%s"}`
-	formattedBody := fmt.Sprintf(body, id)
+	body := `{"clientRegistration":{"clientId":"%s","systemUUID":"%s", "timestamp":"%s"}}`
+	formattedBody := fmt.Sprintf(body, id, "", "2024-08-01T00:00:01.000000000Z")
 
 	rr, err := postToRegisterClientHandler(formattedBody, t)
 	assert.NoError(t.T(), err)
 	assert.Equal(t.T(), 200, rr.Code)
 
 	//Validate the response has these attributes
-	substrings := []string{"clientId", "authToken", "registrationDate"}
+	substrings := []string{"registrationId", "authToken", "registrationDate"}
 	for _, substring := range substrings {
 		if !strings.Contains(rr.Body.String(), substring) {
 			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
@@ -208,16 +216,16 @@ func (t *AppTestSuite) TestAuthenticateClient() {
 	//Test the wrapper.autenticateClient handler
 
 	// Create a POST request with the necessary body
-	body := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
+	body := `{"registrationId":%d,"regHash":{"method":"%s","value":"%s"}}`
 	formattedBody := fmt.Sprintf(
-		body, t.clientId, t.clientInstIdHash.Method, t.clientInstIdHash.Value)
+		body, t.regId, t.clientRegHash.Method, t.clientRegHash.Value)
 
 	rr, err := postToAuthenticateClientHandler(formattedBody, t)
 	assert.NoError(t.T(), err)
 	assert.Equal(t.T(), 200, rr.Code)
 
 	//Validate the response has these attributes
-	substrings := []string{"clientId", "authToken", "registrationDate"}
+	substrings := []string{"registrationId", "authToken", "registrationDate"}
 	for _, substring := range substrings {
 		if !strings.Contains(rr.Body.String(), substring) {
 			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
@@ -228,7 +236,7 @@ func (t *AppTestSuite) TestAuthenticateClient() {
 
 func (t *AppTestSuite) TestReportTelemetryWithInvalidJSON() {
 	// Create a POST request with the necessary body
-	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":1,"bundleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
+	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
 
 	rr, err := postToReportTelemetryHandler(body, "", true, t)
 	assert.NoError(t.T(), err)
@@ -239,7 +247,7 @@ func (t *AppTestSuite) TestReportTelemetryWithInvalidJSON() {
 
 func (t *AppTestSuite) TestReportTelemetryMissingAuth() {
 	// Create a POST request with the necessary body
-	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":1,"bundleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
+	body := `{"header":{reportTimeStamp":"2024-05-29T23:45:34.871802018Z","reportClientId":1,"reportAnnotations":["abc=pqr","xyz"]},"telemetryBundles":[{"header":{"bundleId":"702ef1ed-5a38-440e-9680-357ca8d36a42","bundleTimeStamp":"2024-05-29T23:45:34.670907855Z","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"1234567890","bundleAnnotations":["abc=pqr","xyz"]},"telemetryDataItems":[{"header":{"telemetryId":"b016f023-77bc-4538-a82e-a1e1a2b8e9c8","telemetryTimeStamp":"2024-05-29T23:45:34.57108633Z","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["abc=pqr","xyz"]},"telemetryData":{"ItemA":1,"ItemB":"b"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`
 
 	rr, err := postToReportTelemetryHandler(body, "", false, t)
 	assert.NoError(t.T(), err)
@@ -249,7 +257,7 @@ func (t *AppTestSuite) TestReportTelemetryMissingAuth() {
 
 func (t *AppTestSuite) TestRegisterClientWithInvalidJSON() {
 	// Create a POST request with the necessary body
-	body := `{"clientInstanceId":}`
+	body := `{"clientRegistration":{}}`
 
 	rr, err := postToRegisterClientHandler(body, t)
 	assert.NoError(t.T(), err)
@@ -260,7 +268,7 @@ func (t *AppTestSuite) TestRegisterClientWithInvalidJSON() {
 
 func (t *AppTestSuite) TestAuthenticateClientWithInvalidJSON() {
 	// Create a POST request with the necessary body
-	body := `{"clientId":}`
+	body := `{"registrationId":{}}`
 
 	rr, err := postToAuthenticateClientHandler(body, t)
 	assert.NoError(t.T(), err)
@@ -273,7 +281,7 @@ func (t *AppTestSuite) TestAuthenticateClientWithInvalidClientId() {
 	// Create a POST request with the necessary body
 	bodyfmt := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
 	body := fmt.Sprintf(
-		bodyfmt, -1, t.clientInstIdHash.Method, t.clientInstIdHash.Value)
+		bodyfmt, -1, t.clientRegHash.Method, t.clientRegHash.Value)
 
 	rr, err := postToAuthenticateClientHandler(body, t)
 	assert.NoError(t.T(), err)
@@ -291,7 +299,7 @@ func (t *AppTestSuite) TestAuthenticateClientWithUnregisteredClientId() {
 	// Create a POST request with the necessary body
 	bodyfmt := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
 	body := fmt.Sprintf(
-		bodyfmt, t.clientId+1, t.clientInstIdHash.Method, t.clientInstIdHash.Value)
+		bodyfmt, t.regId+1, t.clientRegHash.Method, t.clientRegHash.Value)
 
 	rr, err := postToAuthenticateClientHandler(body, t)
 	assert.NoError(t.T(), err)
@@ -309,7 +317,7 @@ func (t *AppTestSuite) TestAuthenticateClientWithInvalidInstIdHash() {
 	// Create a POST request with the necessary body
 	bodyfmt := `{"clientId":%d,"instIdHash":{"method":"%s","value":"%s"}}`
 	body := fmt.Sprintf(
-		bodyfmt, t.clientId+1, "sha512", t.clientInstIdHash.Value)
+		bodyfmt, t.regId+1, "sha512", t.clientRegHash.Value)
 
 	rr, err := postToAuthenticateClientHandler(body, t)
 	assert.NoError(t.T(), err)
@@ -336,28 +344,37 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyValues() {
 		shouldFail bool
 	}{
 
-		{"Validation with header.reportId empty value", `{"header":{"reportId":"","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+		{"Validation with header.reportId empty value",
+			`{"header":{"reportId":"","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
 			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, true},
 
-		{"Validation with header.reportAnnotations empty list", `{"header":{"reportId":"fasdklfsdlfksdkflsdf2","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":[]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a2","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7902","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b772","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+		{"Validation with header.reportAnnotations empty list",
+			`{"header":{"reportId":"fasdklfsdlfksdkflsdf2","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":[]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a2","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7902","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b772","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
 			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
 
-		{"Validation with no header.reportAnnotations attribute", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf3","reportTimeStamp":"%s","reportClientId":12345},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a3","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7903","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b773","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+		{"Validation with no header.reportAnnotations attribute",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf3","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66"},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a3","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7903","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b773","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
 			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
 
-		{"Validation with no telemetryBundles attribute", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf4","reportTimeStamp":"%s","reportClientId":12345},"footer":{"checksum":"rchecksum"}}`, true},
+		{"Validation with no telemetryBundles attribute",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf4","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66"},"footer":{"checksum":"rchecksum"}}`, true},
 
-		{"Validation with empty telemetryBundles list", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf5","reportTimeStamp":"%s","reportClientId":12345},"telemetryBundles":[],"footer":{"checksum":"rchecksum"}}`, true},
+		{"Validation with empty telemetryBundles list",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf5","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66"},"telemetryBundles":[],"footer":{"checksum":"rchecksum"}}`, true},
 
-		{"Validation with bundleId empty value", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+		{"Validation with bundleId empty value",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
 			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, true},
 
-		{"Validation with bundleAnnotations empty list", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2b1","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":[]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
+		{"Validation with bundleAnnotations empty list",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2b1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":[]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
 			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
 
-		{"Validation with empty telemetryAnnotations", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsde8","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+		{"Validation with empty telemetryAnnotations",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsde8","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
 
-		{"Validation with no telemetryAnnotations attribute", `{"header":{"reportId":"fasdklfsdlfkssdfadkflsde9","reportTimeStamp":"%s","reportClientId":12345,"reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":12345,"bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+		{"Validation with no telemetryAnnotations attribute",
+			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsde9","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
 	}
 
 	for _, tt := range tests {
@@ -420,7 +437,7 @@ func postToReportTelemetryHandler(body string, compression string, auth bool, t 
 	if auth {
 		req.Header.Set("Authorization", "Bearer "+t.authToken)
 	}
-	req.Header.Set("X-Telemetry-Client-Id", fmt.Sprintf("%d", t.clientId))
+	req.Header.Set("X-Telemetry-Registration-Id", fmt.Sprintf("%d", t.regId))
 
 	// Record the response
 	rr := httptest.NewRecorder()
@@ -477,7 +494,7 @@ func createReportPayload() (reportPayload string) {
 	item1 := telemetrylib.NewTelemetryDataItem(telemetryType, itags1, payload)
 	item2 := telemetrylib.NewTelemetryDataItem(telemetryType, itags2, payload)
 
-	client_id := int64(12345)
+	client_id := uuid.New().String()
 
 	// Create 1 bundle
 	btags1 := types.Tags{types.Tag("bkey1=bvalue1"), types.Tag("bkey2")}

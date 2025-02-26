@@ -19,11 +19,25 @@ jobs:
         with:
           path: telemetry-server
 
+      - name: Select Telemetry Repo Branch
+        id: telemetry-repo-branch
+        run: |
+          branch="$(echo "${{ github.event.pull_request.body }}" |
+            grep -o "^[[:space:]]*TelemetryRepoBranch: .*$" |
+            cut -d":" -f2 | tr -d '[[:space:]]' || true)"
+          [[ -n "${branch}" ]] || branch=main
+          echo "TelemetryRepoBranch=${branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Show TelemetryRepoBranch
+        run: |
+          echo "TelemetryRepoBranch=${{ steps.telemetry-repo-branch.outputs.TelemetryRepoBranch }}"
+
       - name: Checkout SUSE/telemetry companion sources
         uses: actions/checkout@v4
         with:
           repository: SUSE/telemetry
           path: telemetry
+          ref: "${{ steps.telemetry-repo-branch.outputs.TelemetryRepoBranch }}"
 
       - name: Run tests in verbose mode
         run: cd telemetry-server && make test-verbose
