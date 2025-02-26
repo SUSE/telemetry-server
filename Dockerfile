@@ -67,10 +67,10 @@ ARG uid=1001
 ARG gid=1001
 
 # telemetryCfgDir
-ARG telemetryCfgDir /etc/susetelemetry
+ARG telemetryCfgDir=/etc/susetelemetry
 
 # Install database support tools
-RUN set -euo pipefail; zypper -n install --no-recommends sqlite3 postgresql16; zypper -n clean;
+RUN set -euo pipefail; zypper -n install --no-recommends sqlite3 postgresql16 iproute2; zypper -n clean;
 
 #### This block can be removed once we have the package built with a spec that creates user/group/folders
 RUN mkdir -p /var/lib/${user}/data
@@ -94,12 +94,15 @@ FROM telemetry-base AS telemetry-admin
 ARG telemetryAdmin=telemetry-admin
 ARG telemetryCfgDir=/etc/susetelemetry
 ARG adminCfg=dockerAdmin.yaml
+ARG logLevel=info
 
 # copy the built binary from the builder image
 COPY --from=builder /var/cache/telemetry-server/server/$telemetryAdmin/$telemetryAdmin /usr/bin/$telemetryAdmin
-
-COPY testdata/config/$adminCfg $telemetryCfgDir/admin.cfg
 RUN chown -R ${user}:${group} /usr/bin/$telemetryAdmin
+
+# copy over the config file and update the log level to the desired value
+COPY --from=builder /var/cache/telemetry-server/testdata/config/$adminCfg $telemetryCfgDir/admin.cfg
+RUN sed -i -e "s,^\(.*level: \).*,\1$logLevel," $telemetryCfgDir/admin.cfg
 
 # Put additional files into container
 COPY entrypoint-admin.bash /app/entrypoint.bash
@@ -119,12 +122,15 @@ FROM telemetry-base AS telemetry-server
 ARG telemetryServer=telemetry-server
 ARG telemetryCfgDir=/etc/susetelemetry
 ARG serverCfg=dockerServer.yaml
+ARG logLevel=info
 
 # copy the built binary from the builder image
 COPY --from=builder /var/cache/telemetry-server/server/$telemetryServer/$telemetryServer /usr/bin/$telemetryServer
-
-COPY testdata/config/$serverCfg /etc/susetelemetry/server.cfg
 RUN chown -R ${user}:${group} /usr/bin/$telemetryServer
+
+# copy over the config file and update the log level to the desired value
+COPY --from=builder /var/cache/telemetry-server/testdata/config/$serverCfg $telemetryCfgDir/server.cfg
+RUN sed -i -e "s,^\(.*level: \).*,\1$logLevel," $telemetryCfgDir/server.cfg
 
 # Add the container entry point
 COPY entrypoint.bash /app/

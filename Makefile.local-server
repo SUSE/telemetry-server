@@ -1,8 +1,3 @@
-ifdef DEBUG
-TELEMETRY_DEBUG = --debug
-else
-TELEMETRY_DEBUG =
-endif
 TELEMETRY_SERVER = server/telemetry-server
 TELEMETRY_TMP = /tmp/telemetry
 TELEMETRY_SERVER_TMP = $(TELEMETRY_TMP)/server
@@ -16,6 +11,6 @@ local-server-cleanup:
 local-server-start:
 	cd $(TELEMETRY_SERVER); \
 	mkdir -p $(TELEMETRY_SERVER_TMP); \
-	go run . $(TELEMETRY_DEBUG) --config ../../testdata/config/localServer.yaml
+	go run . $(if $(filter debug,$(LOG_LEVEL)),--debug) --config ../../testdata/config/localServer.yaml
 
 local-server: local-server-cleanup local-server-start
