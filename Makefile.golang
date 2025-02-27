@@ -13,7 +13,7 @@ build-only:
 
 build: vet build-only
 
-clean: test-clean
+clean:: test-clean
 	go clean ./...
 
 test-clean:
