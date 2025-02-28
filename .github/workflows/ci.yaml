@@ -8,36 +8,89 @@ on:
       - main
 
 jobs:
-  tests:
+  telemetry_repo_branch:
+    name: Determine Telemetry Repo Branch
+
     runs-on: ubuntu-latest
-    container:
-      image: registry.suse.com/bci/golang:1.21-openssl
+
+    outputs:
+      telemetryRepoBranch: ${{ steps.telemetry-repo-branch.outputs.telemetryRepoBranch }}
 
     steps:
-      - name: Checkout PR sources
-        uses: actions/checkout@v4
-        with:
-          path: telemetry-server
-
-      - name: Select Telemetry Repo Branch
+      - name: Determine which telemetry repo branch to use
         id: telemetry-repo-branch
         run: |
           branch="$(echo "${{ github.event.pull_request.body }}" |
             grep -o "^[[:space:]]*TelemetryRepoBranch: .*$" |
             cut -d":" -f2 | tr -d '[[:space:]]' || true)"
           [[ -n "${branch}" ]] || branch=main
-          echo "TelemetryRepoBranch=${branch}" >> "$GITHUB_OUTPUT"
+          echo "telemetryRepoBranch=${branch}" >> "$GITHUB_OUTPUT"
 
-      - name: Show TelemetryRepoBranch
+      - name: Show selected telemetryRepoBranch
         run: |
-          echo "TelemetryRepoBranch=${{ steps.telemetry-repo-branch.outputs.TelemetryRepoBranch }}"
+          echo "telemetryRepoBranch=${{ steps.telemetry-repo-branch.outputs.telemetryRepoBranch }}"
+
+
+  tests:
+    name: Run Source Code Tests
+
+    runs-on: ubuntu-latest
+
+    needs:
+      - telemetry_repo_branch
+
+    container:
+      image: registry.suse.com/bci/golang:1.21-openssl
+
+    steps:
+      - name: Ensure required packages are installed
+        run: |
+          zypper --non-interactive patch -l && \
+          zypper --non-interactive install nodejs-default
+
+      - name: Checkout PR sources
+        uses: actions/checkout@v4
+        with:
+          path: telemetry-server
 
       - name: Checkout SUSE/telemetry companion sources
         uses: actions/checkout@v4
         with:
           repository: SUSE/telemetry
           path: telemetry
-          ref: "${{ steps.telemetry-repo-branch.outputs.TelemetryRepoBranch }}"
+          ref: "${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}"
 
       - name: Run tests in verbose mode
         run: cd telemetry-server && make test-verbose
+
+  e2e:
+    name: Run basic end to end tests
+
+    needs:
+      - telemetry_repo_branch
+
+    # need modern golang version
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Ensure required packages are installed
+        run: |
+          sudo add-apt-repository -y universe && \
+          sudo apt update && \
+          sudo apt upgrade -y && \
+          sudo apt install -y golang
+
+      - name: Checkout PR sources
+        uses: actions/checkout@v4
+        with:
+          path: telemetry-server
+
+      - name: Checkout SUSE/telemetry companion sources
+        uses: actions/checkout@v4
+        with:
+          repository: SUSE/telemetry
+          path: telemetry
+          ref: "${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}"
+
+      - name: Run e2e tests using docker
+        run: cd telemetry-server && sudo make docker-e2e && sudo make clean

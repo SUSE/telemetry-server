@@ -49,6 +49,8 @@ func (d *DbConnection) Setup(name string, dbcfg DBConfig) {
 }
 
 func (d *DbConnection) Connect() (err error) {
+	slog.Debug("Connecting", slog.String("database", d.name))
+
 	// connect to specified DB using the specified driver and dataSource
 	d.Conn, err = sql.Open(d.Driver, d.DataSource)
 	if err != nil {
@@ -60,7 +62,7 @@ func (d *DbConnection) Connect() (err error) {
 		)
 	}
 
-	slog.Info("Database Connected", slog.String("database", d.name))
+	slog.Info("Connected", slog.String("database", d.name))
 
 	return
 }
@@ -80,6 +82,8 @@ func (d *DbConnection) EnsureTablesExist(tables map[string]string) (err error) {
 }
 
 func (d *DbConnection) EnsureTableSpecsExist(tables []TableSpec) (err error) {
+	slog.Debug("Updating schemas", slog.String("database", d.name))
+
 	for _, table := range tables {
 		createCmd := table.CreateCmd(d)
 		slog.Debug("sql", slog.String("createCmd", createCmd))
@@ -89,6 +93,7 @@ func (d *DbConnection) EnsureTableSpecsExist(tables []TableSpec) (err error) {
 			return
 		}
 	}
+	slog.Info("Updated schemas", slog.String("database", d.name))
 
 	return
 }

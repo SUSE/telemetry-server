@@ -16,13 +16,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      tsa:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsg:9999/healthz || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 40
 
   tsa:
     image: telemetry/admin
@@ -45,7 +43,7 @@ services:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsa:9998/healthz || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 40
 
   db:
     image: telemetry/postgres

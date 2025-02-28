@@ -11,30 +11,33 @@ TELEMETRY_CONTAINERS = \
 # Start the telemetry containers using docker
 docker-build: vet
 	for cntr in $(TELEMETRY_CONTAINERS); do \
-		docker build -t $${cntr} --target $${cntr} . --build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH); \
+		$(CNTR_MGR) build -t $${cntr} --target $${cntr} . \
+		  --build-arg logLevel=$(LOG_LEVEL) \
+		  --build-arg telemetryCfgDir=/etc/susetelemetry \
+			--build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH); \
 	done
 
 docker-start docker-run: docker-build
 	port=9999; \
 	for cntr in $(TELEMETRY_CONTAINERS); do \
-		docker run --rm -it -d -p $${port}:$${port} --name $${cntr} $${cntr}; \
+		$(CNTR_MGR) run --rm -it -d -p $${port}:$${port} --name $${cntr} $${cntr}; \
 		port=$$(expr $${port} - 1); \
 	done
 
 docker-ps docker-status:
-	docker ps --filter name=\^$$(echo $(TELEMETRY_CONTAINERS) | tr -s ' ' | tr ' ' '|')\$$;
+	$(CNTR_MGR) ps --filter name=\^$$(echo $(TELEMETRY_CONTAINERS) | tr -s ' ' | tr ' ' '|')\$$;
 
 docker-logs:
 	for cntr in $(TELEMETRY_CONTAINERS); do \
-		docker logs -n 100 $${cntr}; \
+		$(CNTR_MGR) logs -n 100 $${cntr}; \
 	done
 
 docker-stop: docker-status
 	-for cntr in $(TELEMETRY_CONTAINERS); do \
-		docker stop $${cntr}; \
+		$(CNTR_MGR) stop $${cntr}; \
 	done
 
-docker-clean:
-	docker buildx prune -f --filter="until=24h"
+docker-clean: docker-stop
+	$(CNTR_MGR) buildx prune -f --filter="until=24h"
 
-clean: docker-clean
+clean:: docker-clean

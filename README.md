@@ -8,7 +8,9 @@ under the same directory:
 * github.com/SUSE/telemetry-server
 
 The telemetry-server can be run locally or via a docker container, using
-either docker compose or docker run directly.
+either docker compose or docker run directly. Alternatively if podman and
+the podman compose commands are available they can be used by passing the
+CNTR_MGR=podman argument to the make command when running actions.
 
 There is also a telematry-admin which can be started locally, or via a
 docker container, either using docker compose or docker directly.
@@ -27,11 +29,11 @@ directory and run the server as follows:
 ```
 
 Alternatively you can run `make local-server` in the top-level directory to
-launch the local server as shown above. You can optionally specify the DEBUG
-variable to enabled DEBUG level logging, as follows:
+launch the local server as shown above. You can optionally specify LOG_LEVEL=debug
+variable to enabled debug level logging, as follows:
 
 ```
-% make local-server DEBUG=true
+% make local-server LOG_LEVEL=debug
 cd server/telemetry-server; \
 rm -rf /tmp/telemetry/server
 cd server/telemetry-server; \

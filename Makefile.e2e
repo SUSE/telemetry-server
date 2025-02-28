@@ -1,3 +1,7 @@
-.PHONY: end-to-end e2e
+.PHONY: compose-e2e docker-e2e e2e end-to-end
 
-end-to-end e2e: compose-start generate compose-stop
+compose-e2e: docker-stop compose-start generate compose-stop
+
+docker-e2e: compose-stop docker-start generate docker-stop
+
+end-to-end e2e: docker-e2e
