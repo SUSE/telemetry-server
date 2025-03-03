@@ -99,7 +99,7 @@ var reportsStagingTableSpec = TableSpec{
 	Name: "reports",
 	Columns: []TableSpecColumn{
 		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
-		{Name: "clientId", Type: "INTEGER"},
+		{Name: "clientId", Type: "VARCHAR"},
 		{Name: "reportId", Type: "VARCHAR"},
 		{Name: "data", Type: "TEXT"},
 		{Name: "receivedAt", Type: "VARCHAR"},
