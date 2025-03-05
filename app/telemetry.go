@@ -8,9 +8,7 @@ import (
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 )
 
-func (a *App) StoreTelemetry(dItm *telemetrylib.TelemetryDataItem, bHeader *telemetrylib.TelemetryBundleHeader) (err error) {
-	// generate a tagSet from the bundle and data item tags
-	tagSet := createTagSet(append(dItm.Header.TelemetryAnnotations, bHeader.BundleAnnotations...))
+func (a *App) GetTagSetId(tagSet string) (tagSetId int64, err error) {
 
 	tsRow := new(TagSetRow)
 	if err = tsRow.SetupDB(&a.TelemetryDB); err != nil {
@@ -20,30 +18,102 @@ func (a *App) StoreTelemetry(dItm *telemetrylib.TelemetryDataItem, bHeader *tele
 
 	tsRow.Init(tagSet)
 
-	// add the tagSet to the tagSets table, if not already present
+	// if the tagSet entry doesn't already exist, add it
 	if !tsRow.Exists() {
-		if err := tsRow.Insert(); err != nil {
+		err = tsRow.Insert()
+		if err != nil {
 			slog.Error("tagSet insert failed", slog.String("tagSet", tsRow.TagSet), slog.String("error", err.Error()))
-			return err
+		} else {
+			slog.Info("tagSet added successfully", slog.String("tagSet", tsRow.TagSet), slog.Int64("id", tsRow.Id))
 		}
+	}
 
-		slog.Info("tagSet added successfully", slog.String("tagSet", tsRow.TagSet), slog.Int64("id", tsRow.Id))
+	// save the tagSet's reference id if either already present or successfully inserted
+	if err == nil {
+		tagSetId = tsRow.Id
+	}
+
+	return
+}
+
+func (a *App) GetCustomerRefId(customerId string) (customerRefId int64, err error) {
+	cRow := new(CustomersRow)
+	if err = cRow.SetupDB(&a.TelemetryDB); err != nil {
+		slog.Error("CustomersRow.SetupDB failed", slog.String("error", err.Error()))
+		return
+	}
+
+	cRow.Init(customerId)
+
+	// if the customerId entry doesn't already exist, add it
+	if !cRow.Exists() {
+		err = cRow.Insert()
+		if err != nil {
+			slog.Error("customerId insert failed", slog.String("customerId", cRow.CustomerId), slog.String("error", err.Error()))
+		} else {
+			slog.Info("customerId added successfully", slog.String("customerId", cRow.CustomerId), slog.Int64("customerRefId", cRow.Id))
+		}
+	}
+
+	// save the customerId's reference id if either already present or successfully inserted
+	if err == nil {
+		customerRefId = cRow.Id
+	}
+
+	return
+}
+
+func (a *App) StoreTelemetry(
+	dItm *telemetrylib.TelemetryDataItem,
+	bHdr *telemetrylib.TelemetryBundleHeader,
+) (err error) {
+	// generate a tagSet from the bundle and data item tags
+	tagSet := createTagSet(append(dItm.Header.TelemetryAnnotations, bHdr.BundleAnnotations...))
+
+	// get the associated tagSet's id, creating a new one if needed
+	tagSetId, err := a.GetTagSetId(tagSet)
+	if err != nil {
+		slog.Error(
+			"failed to retrieve tagSetId",
+			slog.String("tagSet", tagSet),
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
+	// get the associated tagSet's id, creating a new one if needed
+	customerRefId, err := a.GetCustomerRefId(bHdr.BundleCustomerId)
+	if err != nil {
+		slog.Error(
+			"failed to retrieve customerRefId",
+			slog.String("customerId", bHdr.BundleCustomerId),
+			slog.String("err", err.Error()),
+		)
+		return
 	}
 
 	// store the telemetry
-	err = a.StoreTelemetryData(dItm, bHeader, tsRow.Id)
+	err = a.StoreTelemetryData(dItm, bHdr, tagSetId, customerRefId)
 	if err != nil {
-		slog.Error("telemetry store failed", slog.String("telemetryId", dItm.Header.TelemetryId), slog.String("error", err.Error()))
+		slog.Error(
+			"telemetry store failed",
+			slog.String("telemetryId", dItm.Header.TelemetryId),
+			slog.String("error", err.Error()))
 	}
 	return
 }
 
-func (a *App) StoreTelemetryData(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) (err error) {
+func (a *App) StoreTelemetryData(
+	dItm *telemetrylib.TelemetryDataItem,
+	bHdr *telemetrylib.TelemetryBundleHeader,
+	tagSetId int64,
+	customerRefId int64,
+) (err error) {
 	tdRow := new(TelemetryDataRow)
 
 	tdRow.SetupDB(&a.TelemetryDB)
 
-	err = tdRow.Init(dItm, bHdr, tagSetId)
+	err = tdRow.Init(dItm, bHdr, tagSetId, customerRefId)
 	if err != nil {
 		slog.Error(
 			"unstructured tdRow init failed",
@@ -79,12 +149,16 @@ var telemetryTableSpec = TableSpec{
 	Columns: []TableSpecColumn{
 		{Name: "id", Type: "INTEGER", PrimaryKey: true, Identity: true},
 		{Name: "clientId", Type: "VARCHAR"},
-		{Name: "customerId", Type: "INTEGER"},
+		{Name: "customerRefId", Type: "INTEGER"},
 		{Name: "telemetryId", Type: "VARCHAR"},
 		{Name: "telemetryType", Type: "VARCHAR"},
 		{Name: "tagSetId", Type: "INTEGER", Nullable: true},
 		{Name: "timestamp", Type: "VARCHAR"},
 		{Name: "dataItem", Type: "TEXT"},
+	},
+	ForeignKeys: []TableSpecForeignKey{
+		{Column: "tagSetId", ReferencedTable: "tagSets", ReferencedColumn: "id"},
+		{Column: "customerRefId", ReferencedTable: "customers", ReferencedColumn: "id"},
 	},
 }
 
@@ -94,7 +168,7 @@ type TelemetryDataRow struct {
 	// public table fields
 	Id            int64  `json:"id"`
 	ClientId      string `json:"clientId"`
-	CustomerId    string `json:"customerId"`
+	CustomerRefId int64  `json:"customerRefId"`
 	TelemetryId   string `json:"telemetryId"`
 	TelemetryType string `json:"telemetryType"`
 	Timestamp     string `json:"timestamp"`
@@ -107,13 +181,23 @@ type TelemetryDataRowHandler interface {
 	TableRowHandler
 
 	// Initialise the row fields
-	Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) error
+	Init(
+		dItm *telemetrylib.TelemetryDataItem,
+		bHdr *telemetrylib.TelemetryBundleHeader,
+		tagSetId int64,
+		customerRefId int64,
+	) error
 }
 
-func (t *TelemetryDataRow) Init(dItm *telemetrylib.TelemetryDataItem, bHdr *telemetrylib.TelemetryBundleHeader, tagSetId int64) (err error) {
+func (t *TelemetryDataRow) Init(
+	dItm *telemetrylib.TelemetryDataItem,
+	bHdr *telemetrylib.TelemetryBundleHeader,
+	tagSetId int64,
+	customerRefId int64,
+) (err error) {
 	// init common telemetry data fields
 	t.ClientId = bHdr.BundleClientId
-	t.CustomerId = bHdr.BundleCustomerId
+	t.CustomerRefId = customerRefId
 	t.TelemetryId = dItm.Header.TelemetryId
 	t.TelemetryType = dItm.Header.TelemetryType
 	t.Timestamp = dItm.Header.TelemetryTimeStamp
@@ -148,7 +232,7 @@ func (t *TelemetryDataRow) Exists() bool {
 		// select columns
 		[]string{
 			"id",
-			"customerId",
+			"customerRefId",
 			"telemetryType",
 			"tagSetId",
 			"dataItem",
@@ -180,7 +264,7 @@ func (t *TelemetryDataRow) Exists() bool {
 	// been updated to match what is in the DB
 	if err := row.Scan(
 		&t.Id,
-		&t.CustomerId,
+		&t.CustomerRefId,
 		&t.TelemetryType,
 		&t.TagSetId,
 		&t.DataItem,
@@ -204,7 +288,7 @@ func (t *TelemetryDataRow) Insert() (err error) {
 	stmt, err := t.InsertStmt(
 		[]string{
 			"clientId",
-			"customerId",
+			"customerRefId",
 			"telemetryId",
 			"telemetryType",
 			"timestamp",
@@ -225,7 +309,7 @@ func (t *TelemetryDataRow) Insert() (err error) {
 	row := t.DB().QueryRow(
 		stmt,
 		t.ClientId,
-		t.CustomerId,
+		t.CustomerRefId,
 		t.TelemetryId,
 		t.TelemetryType,
 		t.Timestamp,
@@ -252,7 +336,7 @@ func (t *TelemetryDataRow) Update() (err error) {
 	stmt, err := t.UpdateStmt(
 		[]string{
 			"clientId",
-			"customerId",
+			"customerRefId",
 			"telemetryId",
 			"telemetryType",
 			"timestamp",
@@ -275,7 +359,7 @@ func (t *TelemetryDataRow) Update() (err error) {
 	_, err = t.DB().Exec(
 		stmt,
 		t.ClientId,
-		t.CustomerId,
+		t.CustomerRefId,
 		t.TelemetryId,
 		t.TelemetryType,
 		t.Timestamp,

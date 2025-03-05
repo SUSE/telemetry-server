@@ -1,3 +1,5 @@
+COVERAGE_PROFILE=/tmp/.coverage.telemetry-server.out
+
 .DEFAULT_GOAL := build
 
 .PHONY: fmt vet build build-only clean test-clean test-verbose
@@ -23,7 +25,8 @@ test: test-clean build
 	go test -cover ./...
 
 test-verbose: test-clean build
-	go test -v -cover ./...
+	go test -v -cover -coverprofile=$(COVERAGE_PROFILE) ./... && \
+	go tool cover --func=$(COVERAGE_PROFILE)
 
 tidy:
 	go mod tidy

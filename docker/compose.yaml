@@ -37,6 +37,8 @@ services:
     ports:
       - "9998:9998"
     depends_on:
+      tsg:
+        condition: service_healthy
       db:
         condition: service_healthy
     healthcheck:

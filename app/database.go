@@ -85,12 +85,30 @@ func (d *DbConnection) EnsureTableSpecsExist(tables []TableSpec) (err error) {
 	slog.Debug("Updating schemas", slog.String("database", d.name))
 
 	for _, table := range tables {
-		createCmd := table.CreateCmd(d)
-		slog.Debug("sql", slog.String("createCmd", createCmd))
+		createCmd, err := table.CreateCmd(d)
+		if err != nil {
+			slog.Error(
+				"sql create table statement generation failed",
+				slog.String("table", table.Name),
+				slog.String("error", err.Error()),
+			)
+			return fmt.Errorf("generation of create table statement failed: %w", err)
+		}
+
+		slog.Debug(
+			"generated sql create table command",
+			slog.String("createCmd", createCmd),
+		)
+
 		_, err = d.Conn.Exec(createCmd)
 		if err != nil {
-			slog.Error("create table failed", slog.String("table", table.Name), slog.String("error", err.Error()))
-			return
+			slog.Error(
+				"create table failed",
+				slog.String("table", table.Name),
+				slog.String("createCmd", createCmd),
+				slog.String("error", err.Error()),
+			)
+			return err
 		}
 	}
 	slog.Info("Updated schemas", slog.String("database", d.name))
@@ -130,16 +148,44 @@ func (c *TableSpecColumn) Create(db *DbConnection) string {
 	return strings.Join(elements, " ")
 }
 
+type TableSpecForeignKey struct {
+	Name             string
+	Column           string
+	ReferencedTable  string
+	ReferencedColumn string
+}
+
+func (fk *TableSpecForeignKey) Create(db *DbConnection) string {
+	elements := []string{}
+
+	if fk.Name != "" {
+		elements = append(elements, "CONSTRAINT", fk.Name)
+	}
+
+	elements = append(
+		elements,
+		"FOREIGN",
+		"KEY",
+		"("+fk.Column+")",
+		"REFERENCES",
+		fk.ReferencedTable,
+		"("+fk.ReferencedColumn+")",
+	)
+
+	return strings.Join(elements, " ")
+}
+
 type TableSpec struct {
-	Name    string
-	Columns []TableSpecColumn
-	Extras  []string
+	Name        string
+	Columns     []TableSpecColumn
+	ForeignKeys []TableSpecForeignKey
+	Extras      []string
 
 	// TODO: add a sync.Map to hold sql.Prepare()'d statements to
 	// eliminate repeated generation of the same SQL statements
 }
 
-func (ts *TableSpec) CreateCmd(db *DbConnection) string {
+func (ts *TableSpec) CreateCmd(db *DbConnection) (string, error) {
 	table := "CREATE TABLE IF NOT EXISTS " + ts.Name + " ("
 
 	for i, column := range ts.Columns {
@@ -149,8 +195,27 @@ func (ts *TableSpec) CreateCmd(db *DbConnection) string {
 		table += column.Create(db)
 	}
 
+	if len(ts.ForeignKeys) > 0 {
+		table += ", "
+	}
+
+	for i, fk := range ts.ForeignKeys {
+		if err := ts.CheckColumnNames([]string{fk.Column}); err != nil {
+			return "", fmt.Errorf(
+				"foreign key column %q not found in table %q",
+				fk.Column,
+				ts.Name,
+			)
+		}
+
+		if i > 0 {
+			table += ", "
+		}
+		table += fk.Create(db)
+	}
+
 	if len(ts.Extras) > 0 {
-		table += ","
+		table += ", "
 	}
 
 	for _, extra := range ts.Extras {
@@ -159,7 +224,7 @@ func (ts *TableSpec) CreateCmd(db *DbConnection) string {
 
 	table += ")"
 
-	return table
+	return table, nil
 }
 
 func (ts *TableSpec) ColumnName(ind int) (name string, err error) {
@@ -180,7 +245,7 @@ func (ts *TableSpec) CheckColumnNames(colNames []string) (err error) {
 			return cs.Name == colName
 		})
 		if matchInd == -1 {
-			err = fmt.Errorf("column %q not part of table %s", colName, ts.Name)
+			err = fmt.Errorf("column %q not part of table %q", colName, ts.Name)
 			break
 		}
 	}
