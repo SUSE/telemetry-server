@@ -12,6 +12,7 @@ var operationalTables = []TableSpec{
 
 // Telemetry DB Tables
 var telemetryTables = []TableSpec{
+	customersTableSpec,
 	tagSetsTableSpec,
 	telemetryTableSpec,
 }

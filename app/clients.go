@@ -116,9 +116,7 @@ func (c *ClientsRow) Exists() bool {
 			slog.Error(
 				"check for matching entry failed",
 				slog.String("table", c.TableName()),
-				slog.String("clientId", c.ClientId),
-				slog.String("systemUUID", c.SystemUUID),
-				slog.String("clientTimestamp", c.ClientTimestamp),
+				slog.Int64("id", c.Id),
 				slog.String("error", err.Error()),
 			)
 		}

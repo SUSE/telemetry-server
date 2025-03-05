@@ -114,7 +114,11 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	ar.Log.Debug("Unmarshaled", slog.Any("trReq", &trReq))
 
 	// save the report into the staging db
-	a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)
+	err = a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)
+	if err != nil {
+		ar.ErrorResponse(http.StatusBadRequest, err.Error())
+		return
+	}
 
 	// process pending reports
 	a.ProcessStagedReports()
