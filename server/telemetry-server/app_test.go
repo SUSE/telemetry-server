@@ -122,7 +122,8 @@ func (t *AppTestSuite) TestReportTelemetry() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body := createReportPayload()
+	body, err := createReportPayload()
+	t.NoError(err, "creating a report payload should succeed")
 
 	rr, err := postToReportTelemetryHandler(body, "", true, t)
 	assert.NoError(t.T(), err)
@@ -144,7 +145,8 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadGZIP() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body := createReportPayload()
+	body, err := createReportPayload()
+	t.NoError(err, "creating a report payload should succeed")
 
 	//Compress payload
 	cbody, err := compressedData([]byte(body), "gzip")
@@ -169,7 +171,8 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadDeflate() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body := createReportPayload()
+	body, err := createReportPayload()
+	t.NoError(err, "creating a report payload should succeed")
 
 	//Compress payload
 	cbody, err := compressedData([]byte(body), "deflate")
@@ -337,55 +340,252 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyPayload() {
 
 }
 
+func copyReport(orig *telemetrylib.TelemetryReport) *telemetrylib.TelemetryReport {
+	content, _ := json.Marshal(orig)
+	report := new(telemetrylib.TelemetryReport)
+	_ = json.Unmarshal(content, report)
+	return report
+}
+
 func (t *AppTestSuite) TestReportTelemetryWithEmptyValues() {
+	clientId := uuid.NewString()
+
+	// create a report
+	rtags := types.Tags{
+		types.Tag("rkey1=rvalue1"),
+		types.Tag("rkey2"),
+	}
+	report, err := telemetrylib.NewTelemetryReport(clientId, rtags)
+	t.Require().NoError(err, "should be able to create a report")
+
+	// create a bundle
+	btags := types.Tags{
+		types.Tag("bkey1=rvalue1"),
+		types.Tag("bkey2"),
+	}
+	bundle, err := telemetrylib.NewTelemetryBundle(clientId, "SomeCustomer", btags)
+	t.Require().NoError(err, "should be able to create a bundle")
+
+	// create two items
+	itags1 := types.Tags{
+		types.Tag("ikey1=rvalue1"),
+	}
+	itags2 := types.Tags{
+		types.Tag("ikey2"),
+	}
+	item1, err := telemetrylib.NewTelemetryDataItem(
+		"TEL-TYPE-1",
+		itags1,
+		types.NewTelemetryBlob([]byte(`{"key1": "value1", "key2": "value2"}`)),
+	)
+	t.Require().NoError(err, "should be able to create an item")
+
+	item2, err := telemetrylib.NewTelemetryDataItem(
+		"TEL-TYPE-2",
+		itags2,
+		types.NewTelemetryBlob([]byte(`{"key3": "value3", "key4": "value4"}`)),
+	)
+	t.Require().NoError(err, "should be able to create an item")
+
+	// add items to bundle
+	bundle.TelemetryDataItems = append(
+		bundle.TelemetryDataItems,
+		*item1,
+		*item2,
+	)
+	t.Require().NoError(bundle.UpdateChecksum(), "should be able to update bundle checksum")
+
+	// add bundle to report
+	report.TelemetryBundles = append(
+		report.TelemetryBundles,
+		*bundle,
+	)
+	t.Require().NoError(report.UpdateChecksum(), "should be able to update report checksum")
+
+	t.Require().NoError(report.Validate(), "report should be valid")
+
 	tests := []struct {
 		name       string
 		body       string
 		shouldFail bool
 	}{
+		{
+			"dummy test",
+			func() string { return "" }(),
+			true,
+		},
 
-		{"Validation with header.reportId empty value",
-			`{"header":{"reportId":"","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
-			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, true},
-
-		{"Validation with header.reportAnnotations empty list",
-			`{"header":{"reportId":"fasdklfsdlfksdkflsdf2","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":[]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a2","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7902","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b772","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
-			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
-
-		{"Validation with no header.reportAnnotations attribute",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf3","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66"},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a3","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7903","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b773","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
-			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
-
-		{"Validation with no telemetryBundles attribute",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf4","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66"},"footer":{"checksum":"rchecksum"}}`, true},
-
-		{"Validation with empty telemetryBundles list",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf5","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66"},"telemetryBundles":[],"footer":{"checksum":"rchecksum"}}`, true},
-
-		{"Validation with bundleId empty value",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
-			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, true},
-
-		{"Validation with bundleAnnotations empty list",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsdf6","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2b1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":[]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7904","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1","ikey2"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b774","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":["ikey1=ivalue1"]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":
-			"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
-
-		{"Validation with empty telemetryAnnotations",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsde8","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test","telemetryAnnotations":[]},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
-
-		{"Validation with no telemetryAnnotations attribute",
-			`{"header":{"reportId":"fasdklfsdlfkssdfadkflsde9","reportTimeStamp":"%s","reportClientId":"0997e7bb-ce76-4a4d-a0b7-07aeeb6ead66","reportAnnotations":["rkey1=rvalue1","rkey2"]},"telemetryBundles":[{"header":{"bundleId":"1c3f3f72-1cd3-4424-a5bf-5d1c51dde2a1","bundleTimeStamp":"%s","bundleClientId":"78b81c06-2892-4c35-b528-15db6baa0a0f","bundleCustomerId":"customer id","bundleAnnotations":["bkey1=bvalue1","bkey2"]},"telemetryDataItems":[{"header":{"telemetryId":"f4301ecc-ca03-4c31-8a3e-79b8e23e7901","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}},{"header":{"telemetryId":"f256fdb4-22b3-462a-b8f7-9b108b49b771","telemetryTimeStamp":"%s","telemetryType":"SLE-SERVER-Test"},"telemetryData":{"ItemA":1,"ItemB":"b","ItemC":"c"},"footer":{"checksum":"ichecksum"}}],"footer":{"checksum":"bchecksum"}}],"footer":{"checksum":"rchecksum"}}`, false},
+		{
+			"Validation with empty reportId",
+			func() string {
+				copy := copyReport(report)
+				copy.Header.ReportId = ""
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty reportClientId",
+			func() string {
+				copy := copyReport(report)
+				copy.Header.ReportClientId = ""
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty no reportAnnotations",
+			func() string {
+				copy := copyReport(report)
+				copy.Header.ReportAnnotations = []string{}
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			false,
+		},
+		{
+			"Validation with no telemetryBundles",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles = []telemetrylib.TelemetryBundle{}
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty report checksum",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles = []telemetrylib.TelemetryBundle{}
+				copy.Footer.Checksum = ""
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty bundleId",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].Header.BundleId = ""
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty bundleClientId",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].Header.BundleClientId = ""
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty bundleAnnotations",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].Header.BundleAnnotations = []string{}
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			false,
+		},
+		{
+			"Validation with empty telemetryDataItems",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].TelemetryDataItems = []telemetrylib.TelemetryDataItem{}
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty bundle checksum",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].TelemetryDataItems = []telemetrylib.TelemetryDataItem{}
+				copy.TelemetryBundles[0].Footer.Checksum = ""
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty telemetryId",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].TelemetryDataItems[0].Header.TelemetryId = ""
+				t.Require().NoError(copy.TelemetryBundles[0].TelemetryDataItems[0].UpdateChecksum(), "should be able to update data item checksum")
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
+		{
+			"Validation with empty telemetryAnnotations",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].TelemetryDataItems[0].Header.TelemetryAnnotations = []string{}
+				t.Require().NoError(copy.TelemetryBundles[0].TelemetryDataItems[0].UpdateChecksum(), "should be able to update data item checksum")
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			false,
+		},
+		{
+			"Validation with empty JSON object for telemetryData",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].TelemetryDataItems[0].TelemetryData = []byte("{}")
+				t.Require().NoError(copy.TelemetryBundles[0].TelemetryDataItems[0].UpdateChecksum(), "should be able to update data item checksum")
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			false,
+		},
+		{
+			"Validation with empty data item checksum",
+			func() string {
+				copy := copyReport(report)
+				copy.TelemetryBundles[0].TelemetryDataItems[0].Footer.Checksum = ""
+				t.Require().NoError(copy.TelemetryBundles[0].UpdateChecksum(), "should be able to update bundle checksum")
+				t.Require().NoError(copy.UpdateChecksum(), "should be able to update report checksum")
+				content, _ := json.Marshal(&copy)
+				return string(content)
+			}(),
+			true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run("Report Telemetry "+tt.name, func() {
-			tm := types.Now().String()
-			formattedBody := fmt.Sprintf(tt.body, tm, tm, tm, tm)
-
-			//Test the wrapper.reportTelemetry handler
+			// Test the wrapper.reportTelemetry handler
 			// Create a POST request with the necessary body
 
-			rr, err := postToReportTelemetryHandler(formattedBody, "", true, t)
+			rr, err := postToReportTelemetryHandler(tt.body, "", true, t)
 			assert.NoError(t.T(), err)
 
 			if tt.shouldFail {
@@ -480,7 +680,7 @@ func TestAppTestSuite(t *testing.T) {
 	suite.Run(t, new(AppTestSuite))
 }
 
-func createReportPayload() (reportPayload string) {
+func createReportPayload() (reportPayload string, err error) {
 	// Create 2 dataitems
 	telemetryType := types.TelemetryType("SLE-SERVER-Test")
 	itags1 := types.Tags{types.Tag("ikey1=ivalue1"), types.Tag("ikey2")}
@@ -491,24 +691,49 @@ func createReportPayload() (reportPayload string) {
 		"ItemC": "c"
 	}`))
 
-	item1 := telemetrylib.NewTelemetryDataItem(telemetryType, itags1, payload)
-	item2 := telemetrylib.NewTelemetryDataItem(telemetryType, itags2, payload)
+	item1, err := telemetrylib.NewTelemetryDataItem(telemetryType, itags1, payload)
+	if err != nil {
+		return "", err
+	}
+
+	item2, err := telemetrylib.NewTelemetryDataItem(telemetryType, itags2, payload)
+	if err != nil {
+		return "", err
+	}
 
 	client_id := uuid.New().String()
 
 	// Create 1 bundle
 	btags1 := types.Tags{types.Tag("bkey1=bvalue1"), types.Tag("bkey2")}
-	bundle1 := telemetrylib.NewTelemetryBundle(client_id, "customer id", btags1)
+	bundle1, err := telemetrylib.NewTelemetryBundle(client_id, "customer id", btags1)
+	if err != nil {
+		return "", err
+	}
 
 	// add the two items to the bundle
 	bundle1.TelemetryDataItems = append(bundle1.TelemetryDataItems, *item1)
 	bundle1.TelemetryDataItems = append(bundle1.TelemetryDataItems, *item2)
 
+	// update the checksum
+	err = bundle1.UpdateChecksum()
+	if err != nil {
+		return "", err
+	}
+
 	// Create 1 report
 	rtags1 := types.Tags{types.Tag("rkey1=rvalue1"), types.Tag("rkey2")}
-	report1 := telemetrylib.NewTelemetryReport(client_id, rtags1)
+	report1, err := telemetrylib.NewTelemetryReport(client_id, rtags1)
+	if err != nil {
+		return "", err
+	}
 
 	report1.TelemetryBundles = append(report1.TelemetryBundles, *bundle1)
+
+	// update the checksum
+	err = report1.UpdateChecksum()
+	if err != nil {
+		return "", err
+	}
 
 	jsonData, _ := json.Marshal(report1)
 
