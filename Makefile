@@ -1,3 +1,5 @@
+export GO_COVERAGE_PROFILE = /tmp/.coverage.telemetry-server.out
+
 ifeq ($(MAKELEVEL),0)
 
 LOG_LEVEL=info
@@ -24,6 +26,7 @@ TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
 
 $(TARGETS)::
 	$(foreach subdir, $(SUBDIRS), $(MAKE) -C $(subdir) $@ || exit 1;)
+
 else
 include Makefile.golang
 endif

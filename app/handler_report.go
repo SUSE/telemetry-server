@@ -9,7 +9,6 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/go-playground/validator/v10"
 )
 
 func (a *App) ReportTelemetry(ar *AppRequest) {
@@ -104,14 +103,23 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		return
 	}
 
-	validate := validator.New(validator.WithRequiredStructEnabled())
-	err = validate.Struct(&trReq)
+	ar.Log.Debug("Unmarshaled", slog.Any("trReq", &trReq))
+
+	// validate structure
+	err = trReq.TelemetryReport.Validate()
 	if err != nil {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())
 		return
 	}
+	ar.Log.Debug("Structure validated")
 
-	ar.Log.Debug("Unmarshaled", slog.Any("trReq", &trReq))
+	// verify checksums
+	err = trReq.TelemetryReport.VerifyChecksum()
+	if err != nil {
+		ar.ErrorResponse(http.StatusBadRequest, err.Error())
+		return
+	}
+	ar.Log.Debug("Checksums verified")
 
 	// save the report into the staging db
 	err = a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)

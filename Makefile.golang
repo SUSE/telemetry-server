@@ -1,4 +1,4 @@
-COVERAGE_PROFILE=/tmp/.coverage.telemetry-server.out
+GO_COVERAGE_PROFILE ?= /tmp/.coverage.telemetry-server.out
 
 .DEFAULT_GOAL := build
 
@@ -22,11 +22,11 @@ test-clean:
 	go clean -testcache
 
 test: test-clean build
-	go test -cover ./...
+	go test -cover -coverprofile=$(GO_COVERAGE_PROFILE) ./...
 
 test-verbose: test-clean build
-	go test -v -cover -coverprofile=$(COVERAGE_PROFILE) ./... && \
-	go tool cover --func=$(COVERAGE_PROFILE)
+	go test -v -cover -coverprofile=$(GO_COVERAGE_PROFILE) ./... && \
+	go tool cover --func=$(GO_COVERAGE_PROFILE)
 
 tidy:
 	go mod tidy
