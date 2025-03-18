@@ -4,8 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log/slog"
+	"strings"
 
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
+)
+
+const (
+	ANONYMOUS_CUSTOMER_ID = "ANONYMOUS"
 )
 
 func (a *App) GetTagSetId(tagSet string) (tagSetId int64, err error) {
@@ -43,7 +48,23 @@ func (a *App) GetCustomerRefId(customerId string) (customerRefId int64, err erro
 		return
 	}
 
-	cRow.Init(customerId)
+	// determine actual customer id value to use
+	realCustomerId := strings.TrimSpace(customerId)
+	switch {
+	case strings.ToUpper(realCustomerId) == ANONYMOUS_CUSTOMER_ID:
+		fallthrough
+	case realCustomerId == "":
+		realCustomerId = ANONYMOUS_CUSTOMER_ID
+		fallthrough
+	case customerId != realCustomerId:
+		slog.Debug(
+			"Using modified customer id",
+			slog.String("original", customerId),
+			slog.String("updated", customerId),
+		)
+	}
+
+	cRow.Init(realCustomerId)
 
 	// if the customerId entry doesn't already exist, add it
 	if !cRow.Exists() {
