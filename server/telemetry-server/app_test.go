@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -122,7 +123,7 @@ func (t *AppTestSuite) TestReportTelemetry() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body, err := createReportPayload()
+	body, err := createReportPayload("TestCustomer")
 	t.NoError(err, "creating a report payload should succeed")
 
 	rr, err := postToReportTelemetryHandler(body, "", true, t)
@@ -137,7 +138,109 @@ func (t *AppTestSuite) TestReportTelemetry() {
 			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
 		}
 	}
+}
 
+func (t *AppTestSuite) countCustomerIdEntries(customerId string) (count int, err error) {
+	row := t.app.TelemetryDB.Conn.QueryRow(
+		`SELECT COUNT(id) from customers WHERE customerId = '` + customerId + `'`,
+	)
+	err = row.Scan(&count)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return
+		}
+		err = nil
+	}
+
+	return
+}
+
+func (t *AppTestSuite) TestReportTelemetryAnonymously() {
+	// Test that a client id that is empty, or is a case insensitive
+	// match for anonymous maps to an ANONYMOUS customerId entry
+
+	tests := []struct {
+		name               string
+		customerId         string
+		expectedCustomerId string
+	}{
+		{
+			name:               "Empty customerId",
+			customerId:         "",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "Whitespace customerId",
+			customerId:         "    ",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "lowercase anonymous customerId",
+			customerId:         "anonymous",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "mixed case anonymous customerId",
+			customerId:         "anoNymoUs",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "lowercase anonymous customerId with trailing whitespace",
+			customerId:         "anonymous  ",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "lowercase anonymous customerId with leading whitespace",
+			customerId:         "  anonymous",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "uppercase anonymous customerId",
+			customerId:         app.ANONYMOUS_CUSTOMER_ID,
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "uppercase anonymous customerId with trailing whitespace",
+			customerId:         app.ANONYMOUS_CUSTOMER_ID + "  ",
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+		{
+			name:               "uppercase anonymous customerId with leading whitespace",
+			customerId:         "  " + app.ANONYMOUS_CUSTOMER_ID,
+			expectedCustomerId: app.ANONYMOUS_CUSTOMER_ID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("Report Telemetry with "+tt.name, func() {
+			// create a payload with an empty customer id
+			body, err := createReportPayload(tt.customerId)
+			t.NoError(err, "creating a report payload should succeed")
+
+			rr, err := postToReportTelemetryHandler(body, "", true, t)
+			t.NoError(err, "posting telemetry should succeed")
+			t.Equal(200, rr.Code)
+
+			// only check for customer id if different than expected customer id
+			if tt.customerId != tt.expectedCustomerId {
+				// count number of customer id entries
+				custCount, err := t.countCustomerIdEntries(tt.customerId)
+				t.NoError(err, "select count statement should have succeeded")
+				t.Equal(0, custCount, "a customer id entry should not have been created")
+			}
+
+			// count number of expected customer id entries
+			actualCount, err := t.countCustomerIdEntries(tt.expectedCustomerId)
+			t.NoError(err, "select count statement should have succeeded")
+			t.Equal(1, actualCount, "expected customer id entry should have been created")
+
+			// validate the response has expected attributes
+			substrings := []string{"processingId", "processedAt"}
+			for _, substring := range substrings {
+				t.Contains(rr.Body.String(), substring, "String %q does not contain substring %q", rr.Body.String(), substring)
+			}
+		})
+	}
 }
 
 func (t *AppTestSuite) TestReportTelemetryCompressedPayloadGZIP() {
@@ -145,7 +248,7 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadGZIP() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body, err := createReportPayload()
+	body, err := createReportPayload("TestCustomer")
 	t.NoError(err, "creating a report payload should succeed")
 
 	//Compress payload
@@ -171,7 +274,7 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadDeflate() {
 	// Simulated request handled via the router's ServeHTTP
 	// Response recorded via the httptest.HttpRecorder
 
-	body, err := createReportPayload()
+	body, err := createReportPayload("TestCustomer")
 	t.NoError(err, "creating a report payload should succeed")
 
 	//Compress payload
@@ -680,7 +783,7 @@ func TestAppTestSuite(t *testing.T) {
 	suite.Run(t, new(AppTestSuite))
 }
 
-func createReportPayload() (reportPayload string, err error) {
+func createReportPayload(customer_id string) (reportPayload string, err error) {
 	// Create 2 dataitems
 	telemetryType := types.TelemetryType("SLE-SERVER-Test")
 	itags1 := types.Tags{types.Tag("ikey1=ivalue1"), types.Tag("ikey2")}
@@ -705,7 +808,7 @@ func createReportPayload() (reportPayload string, err error) {
 
 	// Create 1 bundle
 	btags1 := types.Tags{types.Tag("bkey1=bvalue1"), types.Tag("bkey2")}
-	bundle1, err := telemetrylib.NewTelemetryBundle(client_id, "customer id", btags1)
+	bundle1, err := telemetrylib.NewTelemetryBundle(client_id, customer_id, btags1)
 	if err != nil {
 		return "", err
 	}
