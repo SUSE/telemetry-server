@@ -1,7 +1,7 @@
 #
 # Build the code in BCI golang based image
 #
-FROM registry.suse.com/bci/golang:1.21-openssl AS builder
+FROM registry.suse.com/bci/golang:1.23-openssl AS builder
 
 #
 # Git repo settings
@@ -84,6 +84,9 @@ RUN for d in $telemetryCfgDir /app; do \
 		exit 1; \
 	done
 
+COPY entrypoint.bash /app/
+RUN chmod 700 /app/entrypoint.bash
+
 #
 # Create the telemetry-admin image
 #
@@ -102,11 +105,10 @@ RUN chown -R ${user}:${group} /usr/bin/$telemetryAdmin
 
 # copy over the config file and update the log level to the desired value
 COPY --from=builder /var/cache/telemetry-server/testdata/config/$adminCfg $telemetryCfgDir/admin.cfg
-RUN sed -i -e "s,^\(.*level: \).*,\1$logLevel," $telemetryCfgDir/admin.cfg
 
 # Put additional files into container
-COPY entrypoint-admin.bash /app/entrypoint.bash
-RUN chmod 700 /app/entrypoint.bash
+RUN echo "TELEMETRY_SERVICE=${telemetryAdmin}" > /etc/default/susetelemetry
+RUN echo "LOG_LEVEL=${logLevel}" >> /etc/default/susetelemetry
 
 ENTRYPOINT ["/app/entrypoint.bash"]
 CMD ["--config", "/etc/susetelemetry/admin.cfg"]
@@ -130,11 +132,10 @@ RUN chown -R ${user}:${group} /usr/bin/$telemetryServer
 
 # copy over the config file and update the log level to the desired value
 COPY --from=builder /var/cache/telemetry-server/testdata/config/$serverCfg $telemetryCfgDir/server.cfg
-RUN sed -i -e "s,^\(.*level: \).*,\1$logLevel," $telemetryCfgDir/server.cfg
 
 # Add the container entry point
-COPY entrypoint.bash /app/
-RUN chmod 700 /app/entrypoint.bash
+RUN echo "TELEMETRY_SERVICE=${telemetryServer}" > /etc/default/susetelemetry
+RUN echo "LOG_LEVEL=${logLevel}" >> /etc/default/susetelemetry
 
 ENTRYPOINT ["/app/entrypoint.bash"]
 CMD ["--config", "/etc/susetelemetry/server.cfg"]

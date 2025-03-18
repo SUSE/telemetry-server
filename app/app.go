@@ -3,12 +3,18 @@ package app
 import (
 	"compress/gzip"
 	"compress/zlib"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/SUSE/telemetry/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"
@@ -28,11 +34,14 @@ func (s *ServerAddress) Setup(api APIConfig) {
 	s.Hostname, s.Port = api.Host, api.Port
 }
 
+// AppVars is a map var name to value
+type AppVars map[string]string
+
 // AppRequest is a struct tracking the resources associated with handling a request
 type AppRequest struct {
 	W     http.ResponseWriter
 	R     *http.Request
-	Vars  map[string]string
+	Vars  AppVars
 	Log   *slog.Logger
 	Quiet bool
 }
@@ -48,6 +57,25 @@ func (ar *AppRequest) getReader() (io.ReadCloser, error) {
 		return ar.R.Body, nil
 	}
 
+}
+
+func ReqLogger(r *http.Request) *slog.Logger {
+	return slog.Default().With(slog.String("method", r.Method), slog.Any("URL", r.URL))
+}
+
+func NewAppRequest(w http.ResponseWriter, r *http.Request, v AppVars) *AppRequest {
+	return &AppRequest{
+		W:    w,
+		R:    r,
+		Vars: v,
+		Log:  ReqLogger(r),
+	}
+}
+
+func QuietAppRequest(w http.ResponseWriter, r *http.Request, v AppVars) (ar *AppRequest) {
+	ar = NewAppRequest(w, r, v)
+	ar.Quiet = true
+	return
 }
 
 func (ar *AppRequest) GetHeader(header string) (value string) {
@@ -144,8 +172,8 @@ func (ar *AppRequest) JsonResponse(code int, payload any) {
 
 // App is a struct tracking the resources associated with the application
 type App struct {
+	// public
 	Name          string
-	debugMode     bool
 	Config        *Config
 	TelemetryDB   DbConnection
 	OperationalDB DbConnection
@@ -154,6 +182,11 @@ type App struct {
 	Handler       http.Handler
 	LogManager    *logging.LogManager
 	AuthManager   *AuthManager
+
+	// private
+	server    *http.Server
+	signals   chan os.Signal
+	debugMode bool
 }
 
 func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App {
@@ -163,6 +196,7 @@ func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App
 	a.Config = cfg
 	a.Handler = handler
 	a.debugMode = debugMode
+	a.signals = make(chan os.Signal, 1)
 
 	// setup logging first so remaining setup logs with config settings
 	if err := a.SetupLogging(); err != nil {
@@ -176,6 +210,12 @@ func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App
 
 	// setup address
 	a.Address.Setup(cfg.API)
+
+	// create the server
+	a.server = &http.Server{
+		Addr:    a.ListenOn(),
+		Handler: handler,
+	}
 
 	// instantiate a new AuthManager based upon auth config settings
 	authManager, err := NewAuthManager(&cfg.Auth)
@@ -252,10 +292,90 @@ func (a *App) Initialize() error {
 	return nil
 }
 
-func (a *App) Run() {
+func (a *App) ListenAndServe() (err error) {
+	// start the server up
 	slog.Info("Starting Telemetry "+a.Name, slog.String("listenOn", a.ListenOn()))
-	if err := http.ListenAndServe(a.ListenOn(), a.Handler); err != nil {
-		slog.Error("ListenAndServe() failed", slog.Any("error", err.Error()))
+	if err = a.server.ListenAndServe(); err != nil {
+		if errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		} else {
+			slog.Error("ListenAndServe() failed", slog.Any("error", err.Error()))
+			return
+		}
+	}
+	slog.Info("Shutdown of Telemetry "+a.Name+" complete", slog.String("listenOn", a.ListenOn()))
+	return
+}
+
+func (a *App) Shutdown() (err error) {
+	// create a timeout context to kill the server if shutdown takes too long,
+	// deferring a call of the returned cancel() which will cancel the timeout
+	// if this routine completes normally, or with error
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	// shutdown the server
+	slog.Debug("Attempting server shutdown...")
+	if err = a.server.Shutdown(ctx); err != nil {
+		slog.Debug("Server shutdown failed", slog.String("err", err.Error()))
+		return
+	}
+	slog.Debug("Succeeded in shutdown of server")
+
+	// close the DB connections
+	dbConns := []DbConnection{
+		a.TelemetryDB,
+		a.StagingDB,
+		a.OperationalDB,
+	}
+	for _, dbConn := range dbConns {
+		slog.Debug("Attempting " + dbConn.name + " DB close...")
+		if err = dbConn.Conn.Close(); err != nil {
+			slog.Debug(dbConn.name+" DB close failed", slog.String("err", err.Error()))
+			return
+		}
+		slog.Debug("Succeeded in close of " + dbConn.name + " DB")
+	}
+
+	return
+}
+
+const (
+	shutdownTimeout = 5 * time.Second
+)
+
+var (
+	caughtSignals = []os.Signal{
+		os.Interrupt,    // generic Ctrl-C or equivalent signal
+		syscall.SIGTERM, // linux specific SIGTERM
+	}
+)
+
+func (a *App) Run() {
+	// relay signals
+	signal.Notify(a.signals, caughtSignals...)
+
+	// start the server in a goroutine so it doesn't block execution
+	go func() {
+		err := a.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	// block waiting for signals
+	sig := <-a.signals
+	slog.Info(
+		"Received signal",
+		slog.String("signal", sig.String()),
+	)
+
+	// shutdown the server
+	if err := a.Shutdown(); err != nil {
+		slog.Error(
+			"Failed to shutdown Telemetry "+a.Name,
+			slog.String("err", err.Error()),
+		)
 		panic(err)
 	}
 }

@@ -22,22 +22,8 @@ func newRouterWrapper(router *mux.Router, app *app.App) *routerWrapper {
 	return &routerWrapper{router: router, app: app}
 }
 
-func reqLogger(r *http.Request) *slog.Logger {
-	return slog.Default().With(slog.String("method", r.Method), slog.Any("URL", r.URL))
-}
-
-func quietAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
-	return &app.AppRequest{
-		W:     w,
-		R:     r,
-		Vars:  mux.Vars(r),
-		Log:   reqLogger(r),
-		Quiet: true,
-	}
-}
-
 func (rw *routerWrapper) healthCheck(w http.ResponseWriter, r *http.Request) {
-	rw.app.HealthCheck(quietAppRequest(w, r))
+	rw.app.HealthCheck(app.QuietAppRequest(w, r, mux.Vars(r)))
 }
 
 // options is a struct of the options

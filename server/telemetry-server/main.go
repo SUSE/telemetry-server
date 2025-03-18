@@ -22,43 +22,20 @@ func newRouterWrapper(router *mux.Router, app *app.App) *routerWrapper {
 	return &routerWrapper{router: router, app: app}
 }
 
-func reqLogger(r *http.Request) *slog.Logger {
-	return slog.Default().With(slog.String("method", r.Method), slog.Any("URL", r.URL))
-}
-
-func newAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
-	return &app.AppRequest{
-		W:    w,
-		R:    r,
-		Vars: mux.Vars(r),
-		Log:  reqLogger(r),
-	}
-}
-
-func quietAppRequest(w http.ResponseWriter, r *http.Request) *app.AppRequest {
-	return &app.AppRequest{
-		W:     w,
-		R:     r,
-		Vars:  mux.Vars(r),
-		Log:   reqLogger(r),
-		Quiet: true,
-	}
-}
-
 func (rw *routerWrapper) authenticateClient(w http.ResponseWriter, r *http.Request) {
-	rw.app.AuthenticateClient(newAppRequest(w, r))
+	rw.app.AuthenticateClient(app.NewAppRequest(w, r, mux.Vars(r)))
 }
 
 func (rw *routerWrapper) registerClient(w http.ResponseWriter, r *http.Request) {
-	rw.app.RegisterClient(newAppRequest(w, r))
+	rw.app.RegisterClient(app.NewAppRequest(w, r, mux.Vars(r)))
 }
 
 func (rw *routerWrapper) reportTelemetry(w http.ResponseWriter, r *http.Request) {
-	rw.app.ReportTelemetry(newAppRequest(w, r))
+	rw.app.ReportTelemetry(app.NewAppRequest(w, r, mux.Vars(r)))
 }
 
 func (rw *routerWrapper) healthCheck(w http.ResponseWriter, r *http.Request) {
-	rw.app.HealthCheck(quietAppRequest(w, r))
+	rw.app.HealthCheck(app.QuietAppRequest(w, r, mux.Vars(r)))
 }
 
 // options is a struct of the options
