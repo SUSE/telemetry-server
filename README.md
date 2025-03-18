@@ -1,17 +1,17 @@
 # SUSE Telemetry Gateway Server
 Implementation for the SUSE Telemetry Gateway service.
 
-To use this code you will need to checkout both telemetry repositories
-under the same directory:
-
-* github.com/SUSE/telemetry
-* github.com/SUSE/telemetry-server
+NOTE:
+Certain actions, such as `make generate` or actions that rely on it,
+will require that the github.com/SUSE/telemetry repo is cloned beside
+this repo.
 
 The telemetry-server can be run locally or via a docker container, using
 either docker compose or docker run directly. Alternatively if podman and
 the podman compose commands are available they can be used by passing the
 CNTR_MGR=podman argument to the make command when running actions.
 
+NOTE:
 There is also a telematry-admin which can be started locally, or via a
 docker container, either using docker compose or docker directly.
 However the telemetry-admin server doesn't provide any functionality
@@ -219,6 +219,9 @@ telemetry-server
 ```
 
 ## Submitting telemetry to the telemetry server
+NOTE: Remember to clone the github.com/SUSE/telemetry repo beside this repo
+to be able to use the `make generate` action.
+
 You can use the generate Makefile action to submit telemtry as follows:
 
 ```
@@ -248,15 +251,19 @@ same parent directory and cd into the telemetry-server repo.
 
 ## End to End testing
 The end to end tests perform the following steps:
-* build the docker compose images
-* start the server using docker compose
+* build the docker or docker compose images
+* start the server using docker or docker compose
 * generate and submit telemetry
-* stop the telemetry server using docker compose
+  * this will require the github.com/SUSE/telemetry repo to be cloned beside this repo.
+* stop the telemetry server using docker or docker compose
 
-Run the end to end tests as follows:
+The docker end to end test will use an embedded sqlite3 database backend,
+while the docker compose tests will deploy postgres database instance.
+
+Run the docker compose end to end tests as follows:
 
 ```
-% make end-to-end
+% make compose-e2e
 cd docker && docker compose build
 ...
 cd docker && docker compose up -d
@@ -281,10 +288,77 @@ cd docker && docker compose down
  ✔ Network docker_internal  Removed                                        0.5s 
 ```
 
+Similarly run the docker end to end tests as follows:
+```
+% make docker-e2e
+cd docker && docker compose ps
+...
+cd docker && docker compose down
+...
+for cntr in telemetry-server; do \
+	docker build -t ${cntr} --target ${cntr} . \
+	  --build-arg logLevel=info \
+	  --build-arg telemetryCfgDir=/etc/susetelemetry \
+		--build-arg telemetryRepoBranch=main \
+		--build-arg telemetryImageVariant=upstream; \
+done
+...
+port=9999; \
+for cntr in telemetry-server; do \
+	docker run --rm -it -d -p ${port}:${port} --name ${cntr} ${cntr}; \
+	port=$(expr ${port} - 1); \
+done
+...
+mkdir -p /tmp/susetelemetry
+cd ../telemetry/cmd/generator; \
+go run .  \
+	--config ../../testdata/config/localClient.yaml \
+	--telemetry=SLE-SERVER-SCCHwInfo \
+	--tag DEVTEST \
+	../../testdata/telemetry/SLE-SERVER-SCCHwInfo/sle12sp5-test.json
+Added telemetry data from "sle12sp5-test.json" as type "SLE-SERVER-SCCHwInfo" with tags [DEVTEST] to local datastore
+Created telemetry bundles from pending telemetry data items
+Created telemetry reports from pending telemetry bundles
+time=2025-03-27T10:03:35.922-04:00 level=INFO msg="Telemetry Client Registration Required" error="client registration required"
+time=2025-03-27T10:03:35.928-04:00 level=INFO msg="Telemetry Client Registration Successful"
+Submitted pending telemetry reports
+docker ps --filter name=\^$(echo telemetry-server | tr -s ' ' | tr ' ' '|')\$;
+...
+for cntr in telemetry-server; do \
+	docker stop ${cntr}; \
+done
+...
+```
+
 ## Running the code validation tests
+
 Run the code validation tests as follows:
 
 ```
 % cd telemetry-server
 % make test
+...
+```
+
+Or for more verbose output use:
+
+```
+% cd telemetry-server
+% make test-verbose
+...
+```
+
+### Running code validation tests using local telemetry repo sources
+
+The above test runs will use the upstream github.com/SUSE/telemetry repo
+sources. If you have the telemetry repo cloned beside the telemetry-server
+repo, possibly with local changes present, and want to test against those
+sources, you can use the local-server-tests make target, which creates a
+copy of the two repos beside each under under a /tmp directory, and runs
+the tests from there:
+
+```
+% cd telemetry-server
+% make local-server-tests
+...
 ```

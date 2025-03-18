@@ -6,4 +6,3 @@ import (
 )
 
 type App = app.App
-

@@ -14,7 +14,8 @@ docker-build: vet
 		$(CNTR_MGR) build -t $${cntr} --target $${cntr} . \
 		  --build-arg logLevel=$(LOG_LEVEL) \
 		  --build-arg telemetryCfgDir=/etc/susetelemetry \
-			--build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH); \
+			--build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH) \
+			--build-arg telemetryImageVariant=$(if $(filter-out main,$(TELEMETRY_REPO_BRANCH)),specified,upstream); \
 	done
 
 docker-start docker-run: docker-build

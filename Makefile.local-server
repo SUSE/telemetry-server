@@ -1,16 +1,39 @@
-TELEMETRY_SERVER = server/telemetry-server
+REPO_DIR = $(patsubst %/,%,$(strip $(dir $(realpath $(lastword $(MAKEFILE_LIST))))))
 TELEMETRY_TMP = /tmp/telemetry
-TELEMETRY_SERVER_TMP = $(TELEMETRY_TMP)/server
+TELEMETRY_LOCAL= $(TELEMETRY_TMP)/local
+TELEMETRY_SERVER = $(TELEMETRY_TMP)/server
+TELEMETRY_TMP_DIRS = \
+	$(TELEMETRY_LOCAL) \
+	$(TELEMETRY_SERVER)
 
-.PHONY: local-server local-server-cleanup local-server-start
+.PHONY: local-server local-server-cleanup local-server-directories local-server-setup local-server-start local-server-tests
 
 local-server-cleanup:
-	cd $(TELEMETRY_SERVER); \
-	rm -rf $(TELEMETRY_SERVER_TMP)
+	rm -rf $(TELEMETRY_TMP_DIRS)
 
-local-server-start:
-	cd $(TELEMETRY_SERVER); \
-	mkdir -p $(TELEMETRY_SERVER_TMP); \
+local-server-directories: local-server-cleanup
+	set -eu && \
+	mkdir -p $(TELEMETRY_TMP_DIRS) && \
+	cp -a $(REPO_DIR) $(TELEMETRY_LOCAL)/ && \
+	if [ -d $(REPO_DIR)/../telemetry ]; then \
+		cp -a $(REPO_DIR)/../telemetry $(TELEMETRY_LOCAL)/;  \
+	fi
+
+local-server-setup: local-server-directories
+	set -eu && \
+	cd $(TELEMETRY_LOCAL)/telemetry-server && \
+	if [ -d ../telemetry ]; then \
+		go mod edit --replace \
+			github.com/SUSE/telemetry=../telemetry/ && \
+		make mod-tidy; \
+	fi
+
+local-server-tests: local-server-setup
+	cd $(TELEMETRY_LOCAL)/telemetry-server && \
+	make test-verbose
+
+local-server-start: local-server-setup
+	cd $(TELEMETRY_LOCAL)/telemetry-server/server/telemetry-server && \
 	go run . $(if $(filter debug,$(LOG_LEVEL)),--debug) --config ../../testdata/config/localServer.yaml
 
-local-server: local-server-cleanup local-server-start
+local-server: local-server-start
