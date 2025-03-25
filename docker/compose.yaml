@@ -16,6 +16,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      init-db:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsg:9999/healthz || exit 1"]
       interval: 5s
@@ -64,6 +66,18 @@ services:
       retries: 10
     volumes:
       - pgdata:/var/lib/postgresql/data
+
+  init-db:
+    image: telemetry/postgres
+    networks:
+      - internal
+    environment:
+      BI_TEAM_PASSWORD: test
+      PGPASSWORD: telemetry
+      POSTGRES_USER: postgres
+      RDS_HOST: db
+      TELEMETRY_PASSWORD: test
+    entrypoint: /telemetry/initdb.bash
 
 volumes:
   pgdata:

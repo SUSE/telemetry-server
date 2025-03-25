@@ -4,13 +4,13 @@ api:
 dbs:
   telemetry:
     driver: postgres
-    params: "postgres://postgres:telemetry@db:5432/telemetry"
+    params: "postgres://telemetry:test@db:5432/telemetry"
   operational:
     driver: postgres
-    params: "postgres://postgres:telemetry@db:5432/operational"
+    params: "postgres://telemetry:test@db:5432/operational"
   staging:
     driver: postgres
-    params: "postgres://postgres:telemetry@db:5432/staging"
+    params: "postgres://telemetry:test@db:5432/staging"
 logging:
   level: info
   location: stderr

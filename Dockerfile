@@ -49,7 +49,6 @@ RUN cd telemetry-server/server/$telemetryServer; go mod download -x
 COPY LICENSE Makefile* ./telemetry-server/
 COPY app ./telemetry-server/app/
 COPY server ./telemetry-server/server/
-COPY testdata ./telemetry-server/testdata/
 
 # Build the telemetry server
 RUN cd telemetry-server; GOFLAGS=-v make build-only
@@ -103,8 +102,8 @@ ARG logLevel=info
 COPY --from=builder /var/cache/telemetry-server/server/$telemetryAdmin/$telemetryAdmin /usr/bin/$telemetryAdmin
 RUN chown -R ${user}:${group} /usr/bin/$telemetryAdmin
 
-# copy over the config file and update the log level to the desired value
-COPY --from=builder /var/cache/telemetry-server/testdata/config/$adminCfg $telemetryCfgDir/admin.cfg
+# copy over the config file
+COPY testdata/config/$adminCfg $telemetryCfgDir/admin.cfg
 
 # Put additional files into container
 RUN echo "TELEMETRY_SERVICE=${telemetryAdmin}" > /etc/default/susetelemetry
@@ -130,8 +129,8 @@ ARG logLevel=info
 COPY --from=builder /var/cache/telemetry-server/server/$telemetryServer/$telemetryServer /usr/bin/$telemetryServer
 RUN chown -R ${user}:${group} /usr/bin/$telemetryServer
 
-# copy over the config file and update the log level to the desired value
-COPY --from=builder /var/cache/telemetry-server/testdata/config/$serverCfg $telemetryCfgDir/server.cfg
+# copy over the config file
+COPY testdata/config/$serverCfg $telemetryCfgDir/server.cfg
 
 # Add the container entry point
 RUN echo "TELEMETRY_SERVICE=${telemetryServer}" > /etc/default/susetelemetry
