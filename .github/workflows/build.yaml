@@ -21,11 +21,11 @@ jobs:
     steps:
       - name: Identify Trigger Event
         run: |
-          if [[ ${{github.event.pull_request.merged == true}} ]]; then
-            echo "EVENT_TYPE=merge_to_main" >> $GITHUB_ENV
+          EVENT_NAME="${{ github.event_name }}"
+          REF="${{ github.ref }}"
+          if [[ $EVENT_NAME == "pull_request" ]]; then
             echo "IMAGE_TAG=latest" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "EVENT_TYPE=tag_push" >> $GITHUB_ENV
+          elif [[ $REF == refs/tags/v* ]]; then
             echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
           fi
 
