@@ -15,6 +15,11 @@ ARG telemetryRepoBranch=main
 ARG telemetryAdmin=telemetry-admin
 ARG telemetryServer=telemetry-server
 
+#
+# Go Environment settings
+#
+ARG GO_NO_PROXY=github.com/SUSE
+
 RUN set -euo pipefail; zypper -n in --no-recommends git make ; zypper -n clean;
 
 # Create a temporary workspace
@@ -23,27 +28,32 @@ WORKDIR /var/cache
 # For now, we need this since we use replace directive to point to the local telemetry module in go.mod
 ADD https://api.github.com/repos/$telemetryRepoName/git/refs/heads/$telemetryRepoBranch telemetry_repo_branch.json
 RUN git clone -b $telemetryRepoBranch https://github.com/$telemetryRepoName telemetry
-RUN cd telemetry; go mod download -x
+RUN cd telemetry; \
+	env GONOPROXY=${GO_NO_PROXY} go mod download -x
 
 # Create dest directories for local code
 RUN mkdir -p \
+	./telemetry-server/app \
 	./telemetry-server/server/$telemetryAdmin \
 	./telemetry-server/server/$telemetryServer
 
 # Copy top-level go.mod and go.sum to dest directory and run go mod download
-COPY go.mod ./telemetry-server
-COPY go.sum ./telemetry-server
-RUN cd telemetry-server; go mod download -x
+COPY go.mod ./telemetry-server/
+COPY go.sum ./telemetry-server/
+RUN cd telemetry-server; \
+	env GONOPROXY=${GO_NO_PROXY} go mod download -x
 
 # Copy admin go.mod and go.sum to dest directory and run go mod download
 COPY server/$telemetryAdmin/go.mod ./telemetry-server/server/$telemetryAdmin/
 COPY server/$telemetryAdmin/go.sum ./telemetry-server/server/$telemetryAdmin/
-RUN cd telemetry-server/server/$telemetryAdmin; go mod download -x
+RUN cd telemetry-server/server/$telemetryAdmin; \
+	env GONOPROXY=${GO_NO_PROXY} go mod download -x
 
 # Copy server go.mod and go.sum to dest directory and run go mod download
 COPY server/$telemetryServer/go.mod ./telemetry-server/server/$telemetryServer/
 COPY server/$telemetryServer/go.sum ./telemetry-server/server/$telemetryServer/
-RUN cd telemetry-server/server/$telemetryServer; go mod download -x
+RUN cd telemetry-server/server/$telemetryServer; \
+	env GONOPROXY=${GO_NO_PROXY} go mod download -x
 
 # Copy over only the required contents to run make build
 COPY LICENSE Makefile* ./telemetry-server/
