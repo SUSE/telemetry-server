@@ -1,12 +1,8 @@
 package app
 
-// Staging DB Tables
-var stagingTables = []TableSpec{
-	reportsStagingTableSpec,
-}
-
 // Operational DB Tables
 var operationalTables = []TableSpec{
+	reportsStagingTableSpec,
 	clientsTableSpec,
 }
 

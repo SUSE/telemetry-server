@@ -61,7 +61,6 @@ type Config struct {
 	DataBases struct {
 		Telemetry   DBConfig `yaml:"telemetry"`
 		Operational DBConfig `yaml:"operational"`
-		Staging     DBConfig `yaml:"staging"`
 	} `yaml:"dbs"`
 	// logging config settings
 	Logging config.LogConfig `yaml:"logging"`

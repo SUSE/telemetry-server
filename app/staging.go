@@ -11,12 +11,12 @@ import (
 )
 
 func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.TelemetryReportHeader) (err error) {
-	// Stores the report body into the staging database in the reports table
+	// Stores the report body in the operational database's reports table
 
 	// create a ReportStagingTableRow struct
 
 	reportStagingRow := new(ReportStagingTableRow)
-	if err = reportStagingRow.SetupDB(&a.StagingDB); err != nil {
+	if err = reportStagingRow.SetupDB(&a.OperationalDB); err != nil {
 		slog.Error("ReportStagingTableRow.SetupDB failed", slog.String("error", err.Error()))
 		return
 	}
@@ -36,7 +36,7 @@ func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.Telemet
 
 func (a *App) ProcessStagedReports() {
 	reportRow := new(ReportStagingTableRow)
-	reportRow.SetupDB(&a.StagingDB)
+	reportRow.SetupDB(&a.OperationalDB)
 
 	for reportRow.FirstUnallocated() {
 		err := a.ProcessStagedReport(reportRow)

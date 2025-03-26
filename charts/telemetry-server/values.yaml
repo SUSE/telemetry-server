@@ -143,9 +143,6 @@ config:
     operational:
       driver: postgres
       params: "<OPERATIONAL_DB_CONNECTION_STRING>"
-    staging:
-      driver: postgres
-      params: "<STAGING_DB_CONNECTION_STRING>"
   logging:
     level: debug
     location: stderr

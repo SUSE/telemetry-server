@@ -121,7 +121,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 	ar.Log.Debug("Checksums verified")
 
-	// save the report into the staging db
+	// save the report into the operational db
 	err = a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)
 	if err != nil {
 		ar.ErrorResponse(http.StatusBadRequest, err.Error())

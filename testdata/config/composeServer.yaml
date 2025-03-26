@@ -8,9 +8,6 @@ dbs:
   operational:
     driver: postgres
     params: "postgres://telemetry:test@db:5432/operational"
-  staging:
-    driver: postgres
-    params: "postgres://telemetry:test@db:5432/staging"
 logging:
   level: info
   location: stderr
