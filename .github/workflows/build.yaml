@@ -1,17 +1,40 @@
-name: Build Docker Image
+name: Build and Push Docker Image
 
 on:
   pull_request:
+    branches: 
+      - main
+    types: [closed] # Trigger on merges to main
+  push:
+    tags:
+      - 'v*'  # Trigger on semantic version tags (e.g., v1.0.0)
 
 jobs:
   build:
+    if: github.event.pull_request.merged == true || startsWith(github.ref, 'refs/tags/v*')
     runs-on: ubuntu-latest
     steps:
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+      - name: Identify Trigger Event
+        run: |
+          if [[ ${{github.event.pull_request.merged == true}} ]]; then
+            echo "EVENT_TYPE=merge_to_main" >> $GITHUB_ENV
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "EVENT_TYPE=tag_push" >> $GITHUB_ENV
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          aws-access-key-id: ${{ secrets.ECR_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.ECR_SECRET_KEY }}
+          aws-region: ${{ secrets.ECR_REGION }}
+
+      - name: Login to ECR
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.ECR_REPO }}
       
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -23,4 +46,4 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME}}/telemetry-server-gateway:latest
+          tags: ${{ secrets.ECR_REPO}}/$IMAGE_TAG
