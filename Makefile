@@ -20,7 +20,7 @@ SUBDIRS = \
   server/telemetry-server \
   server/telemetry-admin
 
-TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
+TARGETS = fmt vet build build-only clean test test-clean test-verbose mod-tidy mod-update test-mod-update
 
 .PHONY: $(TARGETS)
 
