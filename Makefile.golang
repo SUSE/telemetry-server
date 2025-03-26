@@ -1,6 +1,6 @@
 GO_COVERAGE_PROFILE ?= /tmp/.coverage.telemetry-server.out
 
-GO_NO_PROXY=github.com/SUSE
+GO_NO_PROXY = github.com/SUSE
 
 .DEFAULT_GOAL := build
 
@@ -40,7 +40,6 @@ mod-update:
 	export GONOPROXY=${GO_NO_PROXY} && \
 	go get -u -x && \
 	go mod tidy
-
 
 test-mod-update:
 	[ -e go.mod ] || exit 0; \
