@@ -8,9 +8,6 @@ dbs:
   operational:
     driver: sqlite3
     params: /tmp/telemetry/server/operational.db
-  staging:
-    driver: sqlite3
-    params: /var/lib/tsvc/data/staging.db
 logging:
   level: info
   location: stderr

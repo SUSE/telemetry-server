@@ -177,7 +177,6 @@ type App struct {
 	Config        *Config
 	TelemetryDB   DbConnection
 	OperationalDB DbConnection
-	StagingDB     DbConnection
 	Address       ServerAddress
 	Handler       http.Handler
 	LogManager    *logging.LogManager
@@ -206,7 +205,6 @@ func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App
 	// setup databases
 	a.TelemetryDB.Setup("Telemetry", cfg.DataBases.Telemetry)
 	a.OperationalDB.Setup("Operational", cfg.DataBases.Operational)
-	a.StagingDB.Setup("Staging", cfg.DataBases.Staging)
 
 	// setup address
 	a.Address.Setup(cfg.API)
@@ -255,17 +253,6 @@ func (a *App) ListenOn() string {
 }
 
 func (a *App) Initialize() error {
-
-	// staging DB setup
-	if err := a.StagingDB.Connect(); err != nil {
-		slog.Error("Staging DB connection setup failed", slog.String("error", err.Error()))
-		return err
-	}
-
-	if err := a.StagingDB.EnsureTableSpecsExist(stagingTables); err != nil {
-		slog.Error("Staging DB tables setup failed", slog.String("error", err.Error()))
-		return err
-	}
 
 	// operational DB setup
 	if err := a.OperationalDB.Connect(); err != nil {
@@ -325,7 +312,6 @@ func (a *App) Shutdown() (err error) {
 	// close the DB connections
 	dbConns := []DbConnection{
 		a.TelemetryDB,
-		a.StagingDB,
 		a.OperationalDB,
 	}
 	for _, dbConn := range dbConns {

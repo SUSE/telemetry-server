@@ -117,11 +117,9 @@ db-1   | 2024-08-01 14:19:45.222 UTC [1] LOG:  listening on IPv6 address "::", p
 db-1   | 2024-08-01 14:19:45.224 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
 db-1   | 2024-08-01 14:19:45.230 UTC [72] LOG:  database system was shut down at 2024-08-01 14:19:45 UTC
 db-1   | 2024-08-01 14:19:45.236 UTC [1] LOG:  database system is ready to accept connections
-tsa-1  | time=2024-08-01T14:19:46.002Z level=INFO msg="Database Connected" database=Staging
 tsa-1  | time=2024-08-01T14:19:46.005Z level=INFO msg="Database Connected" database=Operational
 tsa-1  | time=2024-08-01T14:19:46.030Z level=INFO msg="Database Connected" database=Telemetry
 tsa-1  | time=2024-08-01T14:19:46.041Z level=INFO msg="Starting Telemetry Admin" listenOn=tsa:9998
-tsg-1  | time=2024-08-01T14:19:52.043Z level=INFO msg="Database Connected" database=Staging
 tsg-1  | time=2024-08-01T14:19:52.047Z level=INFO msg="Database Connected" database=Operational
 tsg-1  | time=2024-08-01T14:19:52.061Z level=INFO msg="Database Connected" database=Telemetry
 tsg-1  | time=2024-08-01T14:19:52.069Z level=INFO msg="Starting Telemetry Server" listenOn=tsg:9999
@@ -201,7 +199,6 @@ To check the logs of the telemetry-server:
 docker logs -n 100 telemetry-server
 time=2024-07-12T12:15:51.633Z level=INFO msg="Logging initialised" level=INFO dest=stderr style=TEXT
 time=2024-07-12T12:15:51.633Z level=INFO msg="Logging initialised" level=INFO dest=stderr style=TEXT
-time=2024-07-12T12:15:51.633Z level=INFO msg="Database Connected" database=Staging
 time=2024-07-12T12:15:51.638Z level=INFO msg="Database Connected" database=Operational
 time=2024-07-12T12:15:51.641Z level=INFO msg="Database Connected" database=Telemetry
 time=2024-07-12T12:15:51.653Z level=INFO msg="Starting Telemetry Server" listenOn=0.0.0.0:9999
