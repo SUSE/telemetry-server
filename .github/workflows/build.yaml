@@ -19,6 +19,9 @@ jobs:
       contents: read 
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+  
       - name: Set IMAGE_TAG
         run: |
           REF="${{ github.ref }}"
