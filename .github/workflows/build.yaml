@@ -21,7 +21,13 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-  
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Set IMAGE_TAG
         run: |
           REF="${{ github.ref }}"
@@ -30,7 +36,10 @@ jobs:
           else
             echo "IMAGE_TAG=latest" >> $GITHUB_ENV
           fi
-          echo $(cat $GITHUB_ENV | grep IMAGE_TAG)
+
+      - name: Echo IMAGE_TAG
+        run: |
+          echo "IMAGE_TAG: $IMAGE_TAG"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -39,19 +48,11 @@ jobs:
           role-session-name: Tahoe-Telemetry-Server-GHA-OIDC
           aws-region: ${{ secrets.ECR_REGION }}
 
-      - name: Login to ECR
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ secrets.ECR_REPO }}
-      
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ secrets.ECR_REPO}}/$IMAGE_TAG
+          tags: "${{ secrets.DOCKER_REPO}}:${{ env.IMAGE_TAG }}"
