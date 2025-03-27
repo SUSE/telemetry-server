@@ -61,7 +61,14 @@ jobs:
           ref: "${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}"
 
       - name: Run tests in verbose mode
-        run: cd telemetry-server && make test-verbose
+        run: |
+          cd telemetry-server && \
+          if [[ "${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}" != "main" ]]; then \
+            go mod edit --replace \
+                github.com/SUSE/telemetry=../telemetry/ && \
+            make mod-tidy; \
+          fi && \
+          make test-verbose
 
   e2e:
     name: Run basic end to end tests

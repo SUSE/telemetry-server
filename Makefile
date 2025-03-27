@@ -2,9 +2,9 @@ export GO_COVERAGE_PROFILE = /tmp/.coverage.telemetry-server.out
 
 ifeq ($(MAKELEVEL),0)
 
-LOG_LEVEL=info
+LOG_LEVEL = info
 CNTR_MGR = docker
-TELEMETRY_REPO_BRANCH = main
+TELEMETRY_REPO_BRANCH ?= main
 
 include Makefile.local-server
 include Makefile.compose
