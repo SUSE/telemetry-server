@@ -27,7 +27,7 @@ jobs:
           else
             echo "IMAGE_TAG=latest" >> $GITHUB_ENV
           fi
-          echo "IMAGE_TAG: $IMAGE_TAG"
+          echo $(cat $GITHUB_ENV | grep IMAGE_TAG)
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
