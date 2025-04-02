@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  annotations: {}
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        {{- include "chart.labels" . | nindent 8 }}
+      annotations:
+        checksum/init-sql: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: init-rds-postgres
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h rds-postgres -U $POSTGRES_USER; do 
+                echo "Waiting for PostgreSQL to be ready..."
+                sleep 2
+              done
+              echo "PostgreSQL is ready, initializing database..."
+              cp /scripts/init.sql /tmp-scripts/tmp-init.sql
+              chmod 600 /tmp-scripts/tmp-init.sql
+              sed -i.bak -e "s|__BI_TEAM_PASSWORD__|${BI_TEAM_PASSWORD}|g" -e "s|__TELEMETRY_PASSWORD__|${TELEMETRY_PASSWORD}|g" /tmp-scripts/tmp-init.sql
+              psql -h rds-postgres -U $POSTGRES_USER -f /tmp-scripts/tmp-init.sql
+              echo "Database initialization completed successfully."
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: POSTGRES_PASSWORD
+            - name: BI_TEAM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: BI_TEAM_USER_PASS
+            - name: TELEMETRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: TELEMETRY_USER_PASS
+          volumeMounts:
+            - name: init-sql
+              mountPath: /scripts/init.sql
+              subPath: init.sql
+            - name: writable-dir
+              mountPath: /tmp-scripts
+      volumes:
+        - name: init-sql
+          configMap:
+            name: rds-postgres-init
+        - name: writable-dir
+          emptyDir: {}
