@@ -3,6 +3,7 @@ package app
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -34,21 +35,37 @@ func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.Telemet
 	return
 }
 
-func (a *App) ProcessStagedReports() {
+func (a *App) ProcessStagedReports() error {
+	var errs []error
+
 	reportRow := new(ReportStagingTableRow)
 	reportRow.SetupDB(&a.OperationalDB)
 
 	for reportRow.FirstUnallocated() {
 		err := a.ProcessStagedReport(reportRow)
 		if err != nil {
-			slog.Error("report processing failed", slog.String("error", err.Error()))
+			slog.Error(
+				"report processing failed",
+				slog.Int64("id", reportRow.Id),
+				slog.String("reportId", reportRow.ReportId),
+				slog.String("error", err.Error()),
+			)
+			errs = append(errs, fmt.Errorf("staged report processing failed: %w", err))
 			continue
 		}
 		err = reportRow.Delete()
 		if err != nil {
-			slog.Error("delete of processed report failed", slog.String("error", err.Error()))
+			slog.Error(
+				"delete of processed report failed",
+				slog.Int64("id", reportRow.Id),
+				slog.String("reportId", reportRow.ReportId),
+				slog.String("error", err.Error()),
+			)
+			errs = append(errs, fmt.Errorf("staged report deletion failed: %w", err))
 		}
 	}
+
+	return errors.Join(errs...)
 }
 
 func (a *App) ProcessStagedReport(reportRow *ReportStagingTableRow) (err error) {
