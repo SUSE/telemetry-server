@@ -5,5 +5,7 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 data:
-  init.sql: |
-    {{- .Files.Get "scripts/init.sql" | nindent 4 }}
+  init.sql.template: |
+    {{- .Files.Get "scripts/init.sql.template" | nindent 4 }}
+  initdb.bash: |
+    {{- .Files.Get "scripts/initdb.bash" | nindent 4 }}

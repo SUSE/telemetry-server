@@ -6,6 +6,20 @@ metadata:
     {{- include "chart.labels" . | nindent 4 }}
 data:
   pre-deploy-checks: |
-    {{- .Files.Get "scripts/pre_deploy_checks.sh" | nindent 4 }}
+    {{- .Files.Get "scripts/pre_deploy_checks.bash" | nindent 4 }}
   file-from-cfgmap: |
-    {{- toYaml .Values.config | nindent 4 }}
+    api:
+      host: ""
+      port: {{ .Values.service.port }}
+    dbs:
+  {{- $pg := .Values.telemetry.postgres -}}
+  {{- $pgPassword := include "postgres.telemetry_user_pass" . -}}
+  {{- range $db := .Values.telemetry.postgres.dbs }}
+      {{ printf "%s:" $db }}
+        driver: postgres
+        params: {{ printf "postgres://%s:%s@%s:%d/%s" $pg.user $pgPassword $pg.host ($pg.port | int) $db | quote }}
+  {{- end }}
+    logging:
+  {{- toYaml .Values.telemetry.logging | nindent 6 }}
+    auth:
+  {{- toYaml .Values.telemetry.auth | nindent 6 }}

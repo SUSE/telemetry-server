@@ -1,0 +1,17 @@
+{{- if not .Values.external.enabled -}}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: telemetry-postgres-db-pvc
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  {{- $storage := .Values.storage }}
+  {{- $pvc := $storage.openplatform.enabled | ternary $storage.openplatform.pvc $storage.local.pvc }}
+  storageClassName: {{ $pvc.storageClass | quote }}
+  accessModes:
+    - {{ $pvc.accessMode | quote }}
+  resources:
+    requests:
+      storage: {{ $pvc.storageSize | quote }}
+{{- end -}}

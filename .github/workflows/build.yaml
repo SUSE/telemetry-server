@@ -2,7 +2,7 @@ name: Build and Push Docker Image
 
 on:
   pull_request:
-    branches: 
+    branches:
       - main
     types: [closed] # Trigger on merges to main
   push:
@@ -16,7 +16,7 @@ jobs:
 
     permissions:
       id-token: write # Required for OIDC auth
-      contents: read 
+      contents: read
 
     steps:
       - name: Checkout Code

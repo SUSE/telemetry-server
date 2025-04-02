@@ -60,20 +60,3 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/*
-Get the fully qualified domain name (FQDN) for the telemetry service
-*/}}
-{{- define "telemetry.fqdn" -}}
-{{- $host := required "A valid telemetry.cert.host must be specified" .Values.telemetry.cert.host }}
-{{- $domain := required "A valid telemetry.cert.domain must be specified" .Values.telemetry.cert.domain }}
-{{- printf "%s.%s" $host $domain }}
-{{- end }}
-
-{{/*
-Get the postgres telemetry user's password from the rds-postgres secret
-*/}}
-{{- define "postgres.telemetry_user_pass" -}}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace "rds-postgres-config") -}}
-{{- index $secret.data "TELEMETRY_USER_PASS" | b64dec -}}
-{{- end -}}

@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: "<TELEMETRY_SERVER_ECR_REPO>"
+  repository: suse/telemetry/server
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   # TO DO: provide the tag at ci/cd runtime
@@ -63,13 +63,13 @@ ingress:
     kubernetes.io/ingress.class: nginx
     kubernetes.io/tls-acme: "true"
   hosts:
-  - host: "<TELEMETRY_SERVER_HOST>" #Fully qualified hostname to access telemetry server
-    paths:
-    - path: /
-      pathType: Prefix
+    - host: "" # empty host will default to telemetry FQDN
+      paths:
+      - path: /
+        pathType: Prefix
   tls:
     - hosts:
-      - "<TELEMETRY_SERVER_HOST>"
+        - "" # empty host will default to telemetry FQDN
       secretName: tls-telemetry-ingress
 
 # OpenPlatform requires pods resources to be defined
@@ -80,29 +80,6 @@ resources:
   requests:
     cpu: 100m
     memory: 128Mi
-
-startupProbe:
-  httpGet:
-    path: /healthz
-    port: 9999
-  ## should be ready within 2 minutes
-  timeoutSeconds: 5
-  periodSeconds: 10
-  failureThreshold: 12
-livenessProbe:
-  httpGet:
-    path: /healthz
-    port: 9999
-  timeoutSeconds: 5
-  periodSeconds: 30
-  failureThreshold: 5
-readinessProbe:
-  httpGet:
-    path: /healthz
-    port: 9999
-  periodSeconds: 30
-  timeoutSeconds: 5
-  failureThreshold: 5
 
 autoscaling:
   enabled: false
@@ -116,9 +93,9 @@ volumes:
 - name: cfg-mnt
   configMap:
     name: telemetry-server-config
-- name: pre-deploy-checks
+- name: scripts-mnt
   configMap:
-    name: pre-deploy-checks
+    name: telemetry-server-config
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
@@ -132,22 +109,41 @@ tolerations: []
 
 affinity: {}
 
-config:
-  api:
-    host: ""
-    port: 9999
-  dbs:
-    telemetry:
-      driver: postgres
-      params: "<TELEMETRY_DB_CONNECTION_STRING>"
-    operational:
-      driver: postgres
-      params: "<OPERATIONAL_DB_CONNECTION_STRING>"
-  logging:
-    level: debug
-    location: stderr
-    style: text
-  # This is for testing purposes only
+telemetry:
   auth:
+    # testing secret
     secret: VGVzdGluZ1NlY3JldAo=
     duration: 1w
+  logging:
+    level: info
+    location: stderr
+    style: text
+  cert:
+    host: telemetry
+    domain: example.com
+  postgres:
+    host: telemetry-postgres
+    port: 5432
+    dbs:
+      - operational
+      - telemetry
+    user: telemetry
+    # password retrieved from rds-postgres-config
+  health:
+    probe:
+      path: /healthz
+    startup:
+      # allow up to 2 minutes for startup
+      timeout: 5
+      period: 10
+      retries: 12
+    liveness:
+      # check every 30 seconds, allow up to 3 failures
+      timeout: 5
+      period: 30
+      retries: 3
+    readiness:
+      # check every 30 seconds, allow up to 3 failures
+      timeout: 5
+      period: 30
+      retries: 3

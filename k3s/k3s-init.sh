@@ -19,7 +19,7 @@ echo "Checking if kubectl is in PATH..."
 KUBECTL_PATH=$(which kubectl)
 if [ -x "$KUBECTL_PATH" ]; then
     echo "kubectl is installed, merging kubeconfig files..."
-    
+
     # Backup the existing kubeconfig file if it exists
     if [ -f $DEFAULT_KUBECONFIG ]; then
         KUBECONFIG_BACKUP=$DEFAULT_KUBECONFIG.backup

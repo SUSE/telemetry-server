@@ -14,6 +14,10 @@ spec:
       annotations:
         checksum/init-sql: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       restartPolicy: OnFailure
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
@@ -21,21 +25,10 @@ spec:
       containers:
         - name: init-rds-postgres
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          command:
-            - sh
-            - -c
-            - |
-              until pg_isready -h rds-postgres -U $POSTGRES_USER; do 
-                echo "Waiting for PostgreSQL to be ready..."
-                sleep 2
-              done
-              echo "PostgreSQL is ready, initializing database..."
-              cp /scripts/init.sql /tmp-scripts/tmp-init.sql
-              chmod 600 /tmp-scripts/tmp-init.sql
-              sed -i.bak -e "s|__BI_TEAM_PASSWORD__|${BI_TEAM_PASSWORD}|g" -e "s|__TELEMETRY_PASSWORD__|${TELEMETRY_PASSWORD}|g" /tmp-scripts/tmp-init.sql
-              psql -h rds-postgres -U $POSTGRES_USER -f /tmp-scripts/tmp-init.sql
-              echo "Database initialization completed successfully."
+          command: ["/bin/bash", "/telemetry/initdb.bash"]
           env:
+            - name: TELEMETRY_POSTGRES
+              value: {{ .Values.postgres.host | quote }}
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
@@ -57,13 +50,21 @@ spec:
                   name: rds-postgres-config
                   key: TELEMETRY_USER_PASS
           volumeMounts:
-            - name: init-sql
-              mountPath: /scripts/init.sql
-              subPath: init.sql
+            - name: init-sql-template
+              mountPath: /telemetry/init.sql.template
+              subPath: init.sql.template
+            - name: initdb-bash
+              mountPath: /telemetry/initdb.bash
+              subPath: initdb.bash
             - name: writable-dir
-              mountPath: /tmp-scripts
+              mountPath: /tmp/telemetry
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       volumes:
-        - name: init-sql
+        - name: init-sql-template
+          configMap:
+            name: rds-postgres-init
+        - name: initdb-bash
           configMap:
             name: rds-postgres-init
         - name: writable-dir

@@ -136,11 +136,11 @@ docker-tsa-1   telemetry/admin      "/app/entrypoint.bas…"   tsa       5 minut
 docker-tsg-1   telemetry/server     "/app/entrypoint.bas…"   tsg       5 minutes ago   Up 5 minutes (healthy)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp
 cd docker && docker compose down
 [+] Running 5/5
- ✔ Container docker-tsg-1   Removed                                                                                               10.6s 
- ✔ Container docker-tsa-1   Removed                                                                                               10.7s 
- ✔ Container docker-db-1    Removed                                                                                                0.3s 
- ✔ Network docker_external  Removed                                                                                                1.0s 
- ✔ Network docker_internal  Removed                                                                                                0.5s 
+ ✔ Container docker-tsg-1   Removed                                                                                               10.6s
+ ✔ Container docker-tsa-1   Removed                                                                                               10.7s
+ ✔ Container docker-db-1    Removed                                                                                                0.3s
+ ✔ Network docker_external  Removed                                                                                                1.0s
+ ✔ Network docker_internal  Removed                                                                                                0.5s
 ```
 
 ## Starting the telemetry server with docker run
@@ -222,10 +222,10 @@ telemetry-server
 NOTE: Remember to clone the github.com/SUSE/telemetry repo beside this repo
 to be able to use the `make generate` action.
 
-You can use the generate Makefile action to submit telemtry as follows:
+You can use the generate Makefile action to submit telemetry as follows:
 
 ```
-% make generate              
+% make generate
 cd ../telemetry/cmd/generator; \
 go run . --config ../../testdata/config/localClient.yaml --telemetry=SLE-SERVER-SCCHwInfo --tag DEVTEST ../../testdata/telemetry/SLE-SERVER-SCCHwInfo/sle12sp5-test.json
 Generator: config=../../testdata/config/localClient.yaml, dryrun=false, tags=[DEVTEST], telemetry=SLE-SERVER-SCCHwInfo, jsonFiles=[../../testdata/telemetry/SLE-SERVER-SCCHwInfo/sle12sp5-test.json]
@@ -268,10 +268,10 @@ cd docker && docker compose build
 ...
 cd docker && docker compose up -d
 [+] Running 4/4
- ✔ Network docker_internal  Created                                        0.1s 
- ✔ Network docker_external  Created                                        0.2s 
- ✔ Container docker-db-1    Healthy                                        2.0s 
- ✔ Container docker-tsg-1   Started                                        2.4s 
+ ✔ Network docker_internal  Created                                        0.1s
+ ✔ Network docker_external  Created                                        0.2s
+ ✔ Container docker-db-1    Healthy                                        2.0s
+ ✔ Container docker-tsg-1   Started                                        2.4s
 cd ../telemetry/cmd/generator; \
 go run . --config ../../testdata/config/localClient.yaml --telemetry=SLE-SERVER-SCCHwInfo --tag DEVTEST ../../testdata/telemetry/SLE-SERVER-SCCHwInfo/sle12sp5-test.json
 ...
@@ -282,10 +282,10 @@ docker-db-1    telemetry/postgres   "docker-entrypoint.s…"   db        4 secon
 docker-tsg-1   telemetry/server     "/app/entrypoint.bas…"   tsg       4 seconds ago   Up 1 second (health: starting)   0.0.0.0:9999->9999/tcp, :::9999->9999/tcp
 cd docker && docker compose down
 [+] Running 4/4
- ✔ Container docker-tsg-1   Removed                                       10.7s 
- ✔ Container docker-db-1    Removed                                        0.3s 
- ✔ Network docker_external  Removed                                        0.8s 
- ✔ Network docker_internal  Removed                                        0.5s 
+ ✔ Container docker-tsg-1   Removed                                       10.7s
+ ✔ Container docker-db-1    Removed                                        0.3s
+ ✔ Network docker_external  Removed                                        0.8s
+ ✔ Network docker_internal  Removed                                        0.5s
 ```
 
 Similarly run the docker end to end tests as follows:
