@@ -5,10 +5,18 @@
 replicaCount: 1
 
 image:
-  repository: docker.io/gbuenodevsuse/telemetry-server #until we have an image built in our build system
+  repository: "<TELEMETRY_SERVER_ECR_REPO>"
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: latest
+  # TO DO: provide the tag at ci/cd runtime
+  tag: v0.1.1
+
+# Dependencies
+dependencies:
+  rdsInit:
+    enabled: true
+    # Reference to the rds-init release name if you're deploying them separately
+    releaseName: rds-init
 
 imagePullSecrets: []
 nameOverride: ""
@@ -54,13 +62,11 @@ ingress:
   annotations:
     kubernetes.io/ingress.class: nginx
     kubernetes.io/tls-acme: "true"
-
   hosts:
   - host: "<TELEMETRY_SERVER_HOST>" #Fully qualified hostname to access telemetry server
     paths:
     - path: /
       pathType: Prefix
-
   tls:
     - hosts:
       - "<TELEMETRY_SERVER_HOST>"
@@ -68,10 +74,6 @@ ingress:
 
 # OpenPlatform requires pods resources to be defined
 resources:
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
     cpu: 100m
     memory: 128Mi
@@ -114,11 +116,6 @@ volumes:
 - name: cfg-mnt
   configMap:
     name: telemetry-server-config
-- name: init-sql
-  configMap:
-    name: rds-postgres-init
-- name: writable-dir
-  emptyDir: {}
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
@@ -151,16 +148,3 @@ config:
   auth:
     secret: VGVzdGluZ1NlY3JldAo=
     duration: 1w
-
-# TODO: Transfer responsability of initializing Postgres instance to CI/CD pipeline
-rdsInit:
-  image:
-    repository: postgres
-    tag: 16
-  postgres:
-    host: "<POSTGRES_HOST>"
-    db: "<POSTGRES_DB>"
-    user: "<POSTGRES_USER>"
-    password: "<POSTGRES_PASS>"
-    biTeamPassword: "<BI_USER_PASS>"
-    telemetryPassword: "<TELEMETRY_USER_PASS>"

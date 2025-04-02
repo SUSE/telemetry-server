@@ -1,0 +1,36 @@
+replicaCount: 1
+
+image:
+  repository: postgres
+  tag: 16
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# PostgreSQL configuration
+postgres:
+  host: "<POSTGRES_HOST>"
+  db: "<POSTGRES_DB>"
+  user: "<POSTGRES_USER>"
+  password: "<POSTGRES_PASS>"
+  biTeamPassword: "<BI_USER_PASS>"
+  telemetryPassword: "<TELEMETRY_USER_PASS>"

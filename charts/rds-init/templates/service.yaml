@@ -5,4 +5,4 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   type: ExternalName
-  externalName: {{ .Values.rdsInit.postgres.host }}
+  externalName: {{ .Values.postgres.host }}

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: telemetry-service
+description: Telemetry Service with RDS Initialization
+type: application
+version: 0.1.0
+dependencies:
+  - name: rds-init
+    version: 0.1.0
+    repository: file://./rds-init
+  - name: telemetry-server
+    version: 0.1.0
+    repository: file://./telemetry-server
