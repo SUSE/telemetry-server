@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -129,7 +130,17 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 
 	// process pending reports
-	a.ProcessStagedReports()
+	err = a.ProcessStagedReports()
+	if err != nil {
+		// err is a joined slice of multiple errors for which err.Error()
+		// will return a multiline string, one error per line, so prepend
+		// a summary error and fail request with combined error
+		ar.ErrorResponse(
+			http.StatusBadRequest,
+			fmt.Errorf("Staged report processing failed:\n%w", err).Error(),
+		)
+		return
+	}
 
 	// initialise a telemetry report response
 	trResp := restapi.NewTelemetryReportResponse(0, types.Now())
