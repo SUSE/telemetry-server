@@ -9,10 +9,6 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
-  # This is needed so that the pod can properly detach and attach PVC's on openplatform 
-  # Comes at the expense of some downtime
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
