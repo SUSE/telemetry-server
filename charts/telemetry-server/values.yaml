@@ -116,6 +116,9 @@ volumes:
 - name: cfg-mnt
   configMap:
     name: telemetry-server-config
+- name: pre-init-checks
+  configMap:
+    name: pre-init-checks
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
