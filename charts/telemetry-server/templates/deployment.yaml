@@ -4,7 +4,8 @@ metadata:
   name: {{ include "chart.fullname" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  annotations: {}
+  annotations:
+    checksum/pre-init-checks: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -31,6 +32,19 @@ spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: pre-init-checks
+          image: postgres:16
+          command: ["/bin/bash", "-c", "/scripts/pre-init-checks.sh"]
+          env:
+            - name: TELEMETRY_USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: TELEMETRY_USER_PASS
+          volumeMounts:
+            - name: pre-init-checks
+              mountPath: /scripts
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

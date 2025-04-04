@@ -57,7 +57,7 @@ ingress:
   # If set to false, ingress will not be created
   # Defaults to true
   # options: true, false
-  enabled: true
+  enabled: false
   className: "nginx"
   annotations:
     kubernetes.io/ingress.class: nginx
@@ -116,6 +116,9 @@ volumes:
 - name: cfg-mnt
   configMap:
     name: telemetry-server-config
+- name: pre-init-checks
+  configMap:
+    name: pre-init-checks
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
