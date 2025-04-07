@@ -6,4 +6,4 @@ metadata:
     {{- include "chart.labels" . | nindent 4 }}
 data:
   init.sql: |
-    {{- .Files.Get "scripts/create-users.sql" | nindent 4 }}
+    {{- .Files.Get "docker/postgres/telemetry/init.sql.template" | nindent 4 }}
