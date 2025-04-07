@@ -1,4 +1,0 @@
-{
-  "operational": ["clients", "reports"],
-  "telemetry": ["customers", "tagsets", "telemetrydata"]
-}

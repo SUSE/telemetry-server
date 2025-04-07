@@ -33,9 +33,9 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
-        - name: pre-init-checks
+        - name: pre-deploy-checks
           image: postgres:16
-          command: ["/bin/bash", "-c", "/scripts/pre-init-checks.sh"]
+          command: ["/bin/bash", "-c", "/scripts/pre-deploy-checks.sh"]
           env:
             - name: TELEMETRY_USER_PASS
               valueFrom:
@@ -43,7 +43,7 @@ spec:
                   name: rds-postgres-config
                   key: TELEMETRY_USER_PASS
           volumeMounts:
-            - name: pre-init-checks
+            - name: pre-deploy-checks
               mountPath: /scripts
       containers:
         - name: {{ .Chart.Name }}
