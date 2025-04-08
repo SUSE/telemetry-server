@@ -4,15 +4,12 @@ metadata:
   name: {{ include "chart.fullname" . }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-  annotations: {}
+  annotations:
+    checksum/pre-init-checks: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
-  # This is needed so that the pod can properly detach and attach PVC's on openplatform 
-  # Comes at the expense of some downtime
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
@@ -35,6 +32,19 @@ spec:
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: pre-deploy-checks
+          image: postgres:16
+          command: ["/bin/bash", "-c", "/scripts/pre-deploy-checks.sh"]
+          env:
+            - name: TELEMETRY_USER_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: rds-postgres-config
+                  key: TELEMETRY_USER_PASS
+          volumeMounts:
+            - name: pre-deploy-checks
+              mountPath: /scripts
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
