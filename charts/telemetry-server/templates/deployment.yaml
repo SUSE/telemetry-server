@@ -35,16 +35,23 @@ spec:
       initContainers:
         - name: pre-deploy-checks
           image: postgres:16
-          command: ["/bin/bash", "-c", "/scripts/pre-deploy-checks.sh"]
+          command: ["/bin/bash", "/telemetry/pre-deploy-checks.bash"]
           env:
-            - name: TELEMETRY_USER_PASS
+            - name: TELEMETRY_POSTGRES
+              value: {{ .Values.telemetry.postgres.host }}
+            - name: TELEMETRY_USER
+              value: {{ .Values.telemetry.postgres.user }}
+            - name: TELEMETRY_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: rds-postgres-config
                   key: TELEMETRY_USER_PASS
           volumeMounts:
-            - name: pre-deploy-checks
-              mountPath: /scripts
+            - name: scripts-mnt
+              mountPath: /telemetry/pre-deploy-checks.bash
+              subPath: pre-deploy-checks
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -56,11 +63,26 @@ spec:
               containerPort: {{ .Values.service.port }}
               protocol: TCP
           startupProbe:
-            {{- toYaml .Values.startupProbe | nindent 12 }}
+            httpGet:
+              path: {{ .Values.telemetry.health.probe.path }}
+              port: http
+            periodSeconds: {{ .Values.telemetry.health.startup.period }}
+            timeoutSeconds: {{ .Values.telemetry.health.startup.timeout }}
+            failureThreshold: {{ .Values.telemetry.health.startup.retries }}
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            httpGet:
+              path: {{ .Values.telemetry.health.probe.path }}
+              port: http
+            periodSeconds: {{ .Values.telemetry.health.liveness.period }}
+            timeoutSeconds: {{ .Values.telemetry.health.liveness.timeout }}
+            failureThreshold: {{ .Values.telemetry.health.liveness.retries }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            httpGet:
+              path: {{ .Values.telemetry.health.probe.path }}
+              port: http
+            periodSeconds: {{ .Values.telemetry.health.readiness.period }}
+            timeoutSeconds: {{ .Values.telemetry.health.readiness.timeout }}
+            failureThreshold: {{ .Values.telemetry.health.readiness.retries }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           {{- with .Values.volumeMounts }}

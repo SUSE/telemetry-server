@@ -8,7 +8,7 @@ If you already have an EKS Kubernetes cluster, skip to the step about [installin
 
 ## Creating an EKS Cluster for the Telemetry Server
 
-In this section, you'll install an EKS cluster with an ingress by using command line tools. 
+In this section, you'll install an EKS cluster with an ingress by using command line tools.
 :::note Prerequisites:
 
 - You should already have an AWS account.

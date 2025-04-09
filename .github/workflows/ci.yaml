@@ -99,8 +99,8 @@ jobs:
           path: telemetry
           ref: "${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}"
 
-      - name: Run e2e tests using docker
+      - name: Run e2e tests using docker compose
         run: |
           cd telemetry-server && \
-          sudo make docker-e2e TELEMETRY_REPO_BRANCH="${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}" && \
+          sudo make compose-e2e TELEMETRY_REPO_BRANCH="${{ needs.telemetry_repo_branch.outputs.telemetryRepoBranch }}" && \
           sudo make clean

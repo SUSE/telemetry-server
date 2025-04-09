@@ -17,7 +17,7 @@ jobs:
 
     permissions:
       id-token: write # Required for OIDC auth
-      contents: read 
+      contents: read
 
     strategy:
       matrix:

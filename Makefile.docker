@@ -21,7 +21,11 @@ docker-build: vet
 docker-start docker-run: docker-build
 	port=9999; \
 	for cntr in $(TELEMETRY_CONTAINERS); do \
-		$(CNTR_MGR) run --rm -it -d -p $${port}:$${port} --name $${cntr} $${cntr}; \
+		$(CNTR_MGR) run \
+			--rm \
+			--detach \
+			--publish $${port}:$${port} \
+			--name $${cntr} $${cntr}; \
 		port=$$(expr $${port} - 1); \
 	done
 
@@ -39,6 +43,7 @@ docker-stop: docker-status
 	done
 
 docker-clean: docker-stop
-	$(CNTR_MGR) buildx prune -f --filter="until=24h"
+	$(CNTR_MGR) buildx prune -f --filter="until=24h" && \
+	$(CNTR_MGR) image prune -f
 
 clean:: docker-clean

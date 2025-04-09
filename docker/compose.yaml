@@ -18,6 +18,8 @@ services:
         condition: service_healthy
       init-db:
         condition: service_completed_successfully
+      pre-deploy-checks:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsg:9999/healthz || exit 1"]
       interval: 5s
@@ -65,7 +67,7 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/pgsql/data
 
   init-db:
     image: telemetry/postgres
@@ -75,9 +77,27 @@ services:
       BI_TEAM_PASSWORD: test
       PGPASSWORD: telemetry
       POSTGRES_USER: postgres
-      RDS_HOST: db
+      TELEMETRY_POSTGRES: db
       TELEMETRY_PASSWORD: test
     entrypoint: /telemetry/initdb.bash
+    depends_on:
+      db:
+        condition: service_healthy
+
+  pre-deploy-checks:
+    image: telemetry/postgres
+    networks:
+      - internal
+    environment:
+      TELEMETRY_POSTGRES: db
+      TELEMETRY_USER: telemetry
+      TELEMETRY_PASSWORD: test
+    entrypoint: /telemetry/pre_deploy_checks.bash
+    depends_on:
+      db:
+        condition: service_healthy
+      init-db:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
