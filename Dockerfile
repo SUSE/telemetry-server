@@ -4,6 +4,12 @@
 ARG GO_NO_PROXY=github.com/SUSE
 
 #
+# PostgreSQL Settings
+#
+ARG POSTGRES_BASE=registry.suse.com/suse/postgres
+ARG POSTGRES_MAJOR=16
+
+#
 # Telemetry Build Settings
 #
 ARG telemetryImageVariant=upstream
@@ -30,6 +36,15 @@ ARG gid=1001
 #
 ARG telemetryAdmin=telemetry-admin
 ARG telemetryServer=telemetry-server
+
+#
+# Build the customised telemetry-postgres image
+#
+FROM ${POSTGRES_BASE}:${POSTGRES_MAJOR} AS telemetry-postgres
+
+# add the telemetry init scripting
+ADD docker/postgres/telemetry /telemetry
+RUN chmod +x /telemetry/*.bash
 
 #
 # Build the code in BCI golang based image

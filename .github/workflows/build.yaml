@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        suffix: [server, admin]
+        suffix: [server, admin, postgres]
 
     steps:
       - name: Checkout Code

@@ -54,7 +54,8 @@ services:
   db:
     image: telemetry/postgres
     build:
-      context: postgres
+      context: ..
+      target: telemetry-postgres
     restart: always
     networks:
       - internal
