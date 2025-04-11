@@ -1,7 +1,9 @@
 #
-# Go Environment Settings
+# Go Settings
 #
 ARG GO_NO_PROXY=github.com/SUSE
+ARG GOLANG_BASE=registry.suse.com/bci/golang
+ARG GOLANG_VERSION=1.23-openssl
 
 #
 # PostgreSQL Settings
@@ -49,7 +51,7 @@ RUN chmod +x /telemetry/*.bash
 #
 # Build the code in BCI golang based image
 #
-FROM registry.suse.com/bci/golang:1.23-openssl AS builder-base
+FROM ${GOLANG_BASE}:${GOLANG_VERSION} AS builder-base
 
 # these args are used in this stage
 ARG telemetryCacheDir
