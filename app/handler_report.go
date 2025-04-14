@@ -137,7 +137,7 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		// a summary error and fail request with combined error
 		ar.ErrorResponse(
 			http.StatusBadRequest,
-			fmt.Errorf("Staged report processing failed:\n%w", err).Error(),
+			fmt.Errorf("staged report processing failed:\n%w", err).Error(),
 		)
 		return
 	}

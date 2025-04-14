@@ -16,8 +16,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
       pre-deploy-checks:
         condition: service_completed_successfully
     healthcheck:
@@ -41,10 +39,10 @@ services:
     ports:
       - "9998:9998"
     depends_on:
-      tsg:
-        condition: service_healthy
       db:
         condition: service_healthy
+      pre-deploy-checks:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --insecure http://tsa:9998/healthz || exit 1"]
       interval: 5s
