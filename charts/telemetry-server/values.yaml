@@ -13,10 +13,10 @@ image:
 
 # Dependencies
 dependencies:
-  rdsInit:
+  databaseInit:
     enabled: true
-    # Reference to the rds-init release name if you're deploying them separately
-    releaseName: rds-init
+    # Reference to the database-init release name if you're deploying them separately
+    releaseName: database-init
 
 imagePullSecrets: []
 nameOverride: ""
@@ -24,7 +24,7 @@ fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # Automatically mount a ServiceAccount's API credentials?
   automount: true
   # Annotations to add to the service account
@@ -128,7 +128,7 @@ telemetry:
       - operational
       - telemetry
     user: telemetry
-    # password retrieved from rds-postgres-config
+    # password retrieved from database-init-config
   health:
     probe:
       path: /healthz
@@ -147,3 +147,6 @@ telemetry:
       timeout: 5
       period: 30
       retries: 3
+
+aws:
+  region: eu-central-1

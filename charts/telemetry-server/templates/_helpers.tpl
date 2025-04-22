@@ -74,6 +74,6 @@ Get the fully qualified domain name (FQDN) for the telemetry service
 Get the postgres telemetry user's password from the rds-postgres secret
 */}}
 {{- define "postgres.telemetry_user_pass" -}}
-{{- $secret := (lookup "v1" "Secret" .Release.Namespace "rds-postgres-config") -}}
+{{- $secret := (lookup "v1" "Secret" .Release.Namespace "database-init-config") -}}
 {{- index $secret.data "TELEMETRY_USER_PASS" | b64dec -}}
 {{- end -}}

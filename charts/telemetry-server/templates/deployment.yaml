@@ -44,7 +44,7 @@ spec:
             - name: TELEMETRY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: rds-postgres-config
+                  name: database-init-config
                   key: TELEMETRY_USER_PASS
           volumeMounts:
             - name: scripts-mnt
