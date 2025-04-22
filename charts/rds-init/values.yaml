@@ -31,9 +31,6 @@ securityContext: {}
 # PostgreSQL configuration
 postgres:
   host: telemetry-postgres
-  db: postgres
-  user: postgres
-  password: postgres_user_password
   biTeamPassword: bus_int_team_password
   telemetryPassword: telemetry_team_password
 

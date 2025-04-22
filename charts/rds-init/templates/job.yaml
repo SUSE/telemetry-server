@@ -23,7 +23,7 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: init-rds-postgres
+        - name: database-init
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command: ["/bin/bash", "/telemetry/initdb.bash"]
           env:
@@ -32,22 +32,22 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: rds-postgres-config
+                  name: telemetry-postgres-config
                   key: POSTGRES_USER
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: rds-postgres-config
+                  name: telemetry-postgres-config
                   key: POSTGRES_PASSWORD
             - name: BI_TEAM_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: rds-postgres-config
+                  name: database-init-config
                   key: BI_TEAM_USER_PASS
             - name: TELEMETRY_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: rds-postgres-config
+                  name: database-init-config
                   key: TELEMETRY_USER_PASS
           volumeMounts:
             - name: init-sql-template
@@ -63,9 +63,9 @@ spec:
       volumes:
         - name: init-sql-template
           configMap:
-            name: rds-postgres-init
+            name: database-init-scripts
         - name: initdb-bash
           configMap:
-            name: rds-postgres-init
+            name: database-init-scripts
         - name: writable-dir
           emptyDir: {}
