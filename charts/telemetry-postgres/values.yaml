@@ -71,8 +71,8 @@ backup:
 
 # aws creds
 awscredentials:
-  accessKeyId: foo
-  secretAccessKey: bar
+  region: eu-central-1
+  secretName: aws-secret-name
 
 storage:
   # OpenPlatform deployment
