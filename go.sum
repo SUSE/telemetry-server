@@ -1,5 +1,5 @@
-github.com/SUSE/telemetry v0.1.1 h1:r0L28N3/cIH2YBauhq6cUOSs9KG0Z+CmyVn6p3C7Z/U=
-github.com/SUSE/telemetry v0.1.1/go.mod h1:0E5LAq/FE7FF8hIuX0hZ+2eo1FbGvLHZUcp25Vf5+iA=
+github.com/SUSE/telemetry v0.1.2 h1:df673OltlQzNYzB4XnCXOFpOgzkknMQenKX6tdP6twg=
+github.com/SUSE/telemetry v0.1.2/go.mod h1:4ziDDRyz2uyLljF+miDLfhdCrgjh+uIwpnOQoNV4oas=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
