@@ -1,5 +1,0 @@
-apiVersion: v2
-name: telemetry-postgres
-description: A Helm chart to setup PostgreSQL access for telemetry, either to a locally deployed instance or to an external PostgreSQL provider
-type: application
-version: 0.1.0
