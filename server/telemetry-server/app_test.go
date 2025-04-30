@@ -676,7 +676,7 @@ func (t *AppTestSuite) TestReportTelemetryWithEmptyValues() {
 				content, _ := json.Marshal(&copy)
 				return string(content)
 			}(),
-			true,
+			false,
 		},
 	}
 
