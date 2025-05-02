@@ -60,6 +60,15 @@ jobs:
       - name: Build and Push
         uses: docker/build-push-action@v6
         with:
+          # ensure we pull the latest base images
+          pull: true
+          # push target image
           push: true
+          # choose the target build stage we want to build
+          target: telemetry-${{ matrix.suffix }}
+          # apply these tags and labels to the built target image
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # use GitHub Action Caches to speed up the build process
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
