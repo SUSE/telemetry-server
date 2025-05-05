@@ -7,10 +7,11 @@ PG_DOCKER_VOLUME = docker_pgdata
 # Start the telemetry-server using docker (or podman) compose
 compose-build: vet
 	cd docker && $(CNTR_MGR) compose build \
-		--build-arg logLevel=$(LOG_LEVEL) \
-		--build-arg telemetryCfgDir=/etc/susetelemetry \
-		--build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH) \
-		--build-arg telemetryImageVariant=$(if $(filter-out main,$(TELEMETRY_REPO_BRANCH)),specified,upstream)
+	  --pull \
+	  --build-arg logLevel=$(LOG_LEVEL) \
+	  --build-arg telemetryCfgDir=/etc/susetelemetry \
+	  --build-arg telemetryRepoBranch=$(TELEMETRY_REPO_BRANCH) \
+	  --build-arg telemetryImageVariant=$(if $(filter-out main,$(TELEMETRY_REPO_BRANCH)),specified,upstream)
 
 compose-start compose-up: compose-build
 	cd docker && $(CNTR_MGR) compose --parallel 4 up --wait -d
