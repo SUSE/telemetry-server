@@ -189,6 +189,8 @@ type App struct {
 }
 
 func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App {
+	var err error
+
 	a := new(App)
 
 	a.Name = name
@@ -203,8 +205,14 @@ func NewApp(name string, cfg *Config, handler http.Handler, debugMode bool) *App
 	}
 
 	// setup databases
-	a.TelemetryDB.Setup("Telemetry", cfg.DataBases.Telemetry)
-	a.OperationalDB.Setup("Operational", cfg.DataBases.Operational)
+	err = a.TelemetryDB.Setup("Telemetry", cfg.DataBases.Telemetry)
+	if err != nil {
+		panic(err)
+	}
+	err = a.OperationalDB.Setup("Operational", cfg.DataBases.Operational)
+	if err != nil {
+		panic(err)
+	}
 
 	// setup address
 	a.Address.Setup(cfg.API)
@@ -316,7 +324,7 @@ func (a *App) Shutdown() (err error) {
 	}
 	for _, dbConn := range dbConns {
 		slog.Debug("Attempting " + dbConn.name + " DB close...")
-		if err = dbConn.Conn.Close(); err != nil {
+		if err = dbConn.dbMgr.Close(); err != nil {
 			slog.Debug(dbConn.name+" DB close failed", slog.String("err", err.Error()))
 			return
 		}

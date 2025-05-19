@@ -90,7 +90,7 @@ auth:
 		Method: "sha256",
 		Value:  "1a374d367946699bddce3c749ec755ce4b8859c4c9984f3c1f41460ce3bbed9c",
 	}
-	row := s.app.OperationalDB.Conn.QueryRow(
+	row := s.app.OperationalDB.DB().QueryRow(
 		`INSERT INTO clients(`+
 			`clientId, `+
 			`systemUUID, `+
@@ -138,7 +138,7 @@ func (t *AppTestSuite) TestReportTelemetry() {
 }
 
 func (t *AppTestSuite) countCustomerIdEntries(customerId string) (count int, err error) {
-	row := t.app.TelemetryDB.Conn.QueryRow(
+	row := t.app.TelemetryDB.DB().QueryRow(
 		`SELECT COUNT(id) from customers WHERE customerId = '` + customerId + `'`,
 	)
 	err = row.Scan(&count)
