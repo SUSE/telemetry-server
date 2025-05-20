@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+
 	"slices"
 	"strings"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/SUSE/telemetry-server/app/dbmanager"
 )
 
 const (
@@ -19,57 +19,93 @@ const (
 // DbConnection is a struct tracking a DB connection and associated DB settings
 type DbConnection struct {
 	name        string
-	Conn        *sql.DB
-	Driver      string
-	DataSource  string
+	dbMgr       dbmanager.DbManager
 	Placeholder PlaceholderGenerator
 }
 
 func (d DbConnection) String() string {
-	return fmt.Sprintf("%s:%p:%s:%s", d.name, d.Conn, d.Driver, d.DataSource)
+	return fmt.Sprintf("%s:%s", d.name, d.dbMgr.String())
 }
 
-func (d *DbConnection) Setup(name string, dbcfg DBConfig) {
-	d.name = name
-	d.Driver = dbcfg.Driver
-	d.DataSource = dbcfg.Params
+func (d DbConnection) Close() (err error) {
+	// close the DB
+	err = d.dbMgr.Close()
+	if err != nil {
+		slog.Debug(
+			"Failed to close DB connection",
+			slog.String("name", d.name),
+			slog.String("dbMgr", d.dbMgr.String()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
 
-	switch d.Driver {
-	case "sqlite":
-		// sqlite is an alias for sqlite3
-		d.Driver = "sqlite3"
-		fallthrough
-	case "sqlite3":
-		// sqlite3 uses `?` as placeholder
-		d.Placeholder = QuestionMarker
-		// TODO: Setup sqlite3 required options
-	case "postgres":
-		// postgres is an alias for pgx
-		d.Driver = "pgx"
-		fallthrough
-	case "pgx":
+	slog.Info(
+		"DB closed",
+		slog.String("name", d.name),
+		slog.String("dbMgr", d.dbMgr.String()),
+	)
+
+	return
+}
+
+func (d *DbConnection) Setup(name string, dbcfg DBConfig) error {
+	dbMgr, err := dbmanager.New(dbcfg.Driver, dbcfg.Params)
+	if err != nil {
+		return err
+	}
+
+	d.name = name
+	d.dbMgr = dbMgr
+
+	switch {
+	case d.dbMgr.Type().IsPostgres():
 		// postgres uses `$1`, `$2`, ... as placeholders
 		d.Placeholder = DollarCounter
+	case d.dbMgr.Type().IsSqlite3():
+		// sqlite3 uses `?` as placeholder
+		d.Placeholder = QuestionMarker
 	}
+
+	return err
 }
 
 func (d *DbConnection) Connect() (err error) {
-	slog.Debug("Connecting", slog.String("database", d.name))
+	slog.Debug("Connecting to DB", slog.String("name", d.name))
 
-	// connect to specified DB using the specified driver and dataSource
-	d.Conn, err = sql.Open(d.Driver, d.DataSource)
+	// connect to the specified DB
+	err = d.dbMgr.Connect()
 	if err != nil {
 		slog.Error(
-			"db connect failed",
-			slog.String("driver", d.Driver),
-			slog.String("dataSource", d.DataSource),
+			"db manager connect failed",
+			slog.String("name", d.name),
+			slog.String("dbMgr", d.dbMgr.String()),
 			slog.String("Error", err.Error()),
 		)
+		return
 	}
 
-	slog.Info("Connected", slog.String("database", d.name))
+	err = d.dbMgr.Ping()
+	if err != nil {
+		slog.Error(
+			"db ping after connect failed",
+			slog.String("name", d.name),
+			slog.String("dbMgr", d.dbMgr.String()),
+			slog.String("Error", err.Error()),
+		)
+		return
+	}
+
+	slog.Info("Connected to DB", slog.String("name", d.name))
 
 	return
+}
+
+func (d *DbConnection) DB() *sql.DB {
+	if d.dbMgr != nil {
+		return d.dbMgr.DB()
+	}
+	panic(fmt.Errorf("attempted to access uninitialised %q DB", d.name))
 }
 
 func (d *DbConnection) AcquireAdvisoryLockPostgres(lockId int64, tx *sql.Tx, shared bool) (err error) {
@@ -100,7 +136,7 @@ func (d *DbConnection) AcquireAdvisoryLockPostgres(lockId int64, tx *sql.Tx, sha
 	if tx != nil {
 		_, err = tx.Exec(lockStmt)
 	} else {
-		_, err = d.Conn.Exec(lockStmt)
+		_, err = d.DB().Exec(lockStmt)
 	}
 	if err != nil {
 		slog.Debug(
@@ -117,8 +153,8 @@ func (d *DbConnection) AcquireAdvisoryLockPostgres(lockId int64, tx *sql.Tx, sha
 }
 
 func (d *DbConnection) AcquireAdvisoryLock(lockId int64, tx *sql.Tx, shared bool) (err error) {
-	switch d.Driver {
-	case "pgx":
+	switch {
+	case d.dbMgr.Type().IsPostgres():
 		err = d.AcquireAdvisoryLockPostgres(lockId, tx, shared)
 	}
 
@@ -156,7 +192,7 @@ func (d *DbConnection) ReleaseAdvisoryLockPostgres(lockId int64, tx *sql.Tx, sha
 		slog.Bool("inTx", tx != nil),
 		slog.Bool("shared", shared),
 	)
-	_, err = d.Conn.Exec(unlockStmt)
+	_, err = d.DB().Exec(unlockStmt)
 	if err != nil {
 		slog.Debug(
 			"release failed for advisory lock",
@@ -172,8 +208,8 @@ func (d *DbConnection) ReleaseAdvisoryLockPostgres(lockId int64, tx *sql.Tx, sha
 }
 
 func (d *DbConnection) ReleaseAdvisdoryLock(lockId int64, tx *sql.Tx, shared bool) (err error) {
-	switch d.Driver {
-	case "pgx":
+	switch {
+	case d.dbMgr.Type().IsPostgres():
 		err = d.ReleaseAdvisoryLockPostgres(lockId, tx, shared)
 	}
 
@@ -190,7 +226,7 @@ func (d *DbConnection) CheckTableExists(table *TableSpec) (bool, error) {
 	  AND table_name = $1;
 	`
 	// query if table exists
-	row := d.Conn.QueryRow(existsStmt, table.Name)
+	row := d.DB().QueryRow(existsStmt, table.Name)
 	if err := row.Scan(&name); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			slog.Debug(
@@ -243,7 +279,7 @@ func (d *DbConnection) CreateTableFromSpec(table *TableSpec) (err error) {
 	)
 
 	// begin a transaction
-	tx, err := d.Conn.Begin()
+	tx, err := d.DB().Begin()
 	if err != nil {
 		return fmt.Errorf(
 			"failed to begin a transaction to create the %q table: %w",
@@ -399,8 +435,8 @@ func (c *TableSpecColumn) Create(db *DbConnection) string {
 		elements = append(elements, "PRIMARY", "KEY")
 	}
 	if c.Identity {
-		switch db.Driver {
-		case "pgx":
+		switch {
+		case db.dbMgr.Type().IsPostgres():
 			elements = append(elements, "GENERATED", "BY", "DEFAULT", "AS", "IDENTITY")
 		}
 	}
@@ -540,7 +576,7 @@ func (t *TableRowCommon) DB() *sql.DB {
 		panic(err)
 	}
 
-	return t.db.Conn
+	return t.db.DB()
 }
 
 func (t *TableRowCommon) TableName() string {

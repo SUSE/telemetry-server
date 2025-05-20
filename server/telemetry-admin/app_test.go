@@ -80,7 +80,7 @@ auth:
 		Method: "sha256",
 		Value:  "56dad39883e6b69e68523e8991a9237422a13031fd5f136286045a3e9b79f3ce",
 	}
-	row := s.app.OperationalDB.Conn.QueryRow(
+	row := s.app.OperationalDB.DB().QueryRow(
 		`INSERT INTO clients(`+
 			`clientId, `+
 			`systemUUID, `+
