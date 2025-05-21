@@ -16,7 +16,15 @@ func (a *App) LiveCheck(ar *AppRequest) {
 	if err != nil {
 		ar.Log.Error("Failed liveness probe")
 		ar.JsonResponse(http.StatusInternalServerError, `{"live": false}`)
-	} else {
-		ar.JsonResponse(http.StatusOK, `{"live": true}`)
+		return
 	}
+
+	err = a.OperationalDB.dbMgr.Ping()
+	if err != nil {
+		ar.Log.Error("Failed liveness probe")
+		ar.JsonResponse(http.StatusInternalServerError, `{"live": false}`)
+		return
+	}
+
+	ar.JsonResponse(http.StatusOK, `{"live": true}`)
 }
