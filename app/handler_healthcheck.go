@@ -9,3 +9,14 @@ func (a *App) HealthCheck(ar *AppRequest) {
 	// respond success
 	ar.JsonResponse(http.StatusOK, `{"alive": true}`)
 }
+
+func (a *App) LiveCheck(ar *AppRequest) {
+	ar.Log.Debug("Checking liveness probe")
+	err := a.TelemetryDB.dbMgr.Ping()
+	if err != nil {
+		ar.Log.Error("Failed liveness probe")
+		ar.JsonResponse(http.StatusInternalServerError, `{"live": false}`)
+	} else {
+		ar.JsonResponse(http.StatusOK, `{"live": true}`)
+	}
+}
