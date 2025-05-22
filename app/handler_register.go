@@ -74,6 +74,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	client.AuthToken, err = a.AuthManager.CreateToken()
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to create authtoken for client")
+		return
 	}
 
 	client.RegistrationDate = types.Now().String()
