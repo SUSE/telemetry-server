@@ -13,12 +13,18 @@ import (
 	"github.com/SUSE/telemetry/pkg/types"
 )
 
+// Telemetry reports can be processed immediately or
+// staged for later processing. This variable is used
+// to control the default mode of operation, which is
+// currently disabled by default.
 var stageTelemetryReports bool = false
 
+// Enable telemetry report staging by default
 func EnableTelemetryReportStaging() {
 	stageTelemetryReports = true
 }
 
+// Disable telemetry report staging by default
 func DisableTelemetryReportStaging() {
 	stageTelemetryReports = false
 }
