@@ -8,9 +8,26 @@ import (
 	"net/http"
 	"strconv"
 
+	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
 )
+
+// Telemetry reports can be processed immediately or
+// staged for later processing. This variable is used
+// to control the default mode of operation, which is
+// currently disabled by default.
+var stageTelemetryReports bool = false
+
+// Enable telemetry report staging by default
+func EnableTelemetryReportStaging() {
+	stageTelemetryReports = true
+}
+
+// Disable telemetry report staging by default
+func DisableTelemetryReportStaging() {
+	stageTelemetryReports = false
+}
 
 func (a *App) ReportTelemetry(ar *AppRequest) {
 	ar.Log.Info("Processing")
@@ -122,30 +139,115 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 	ar.Log.Debug("Checksums verified")
 
-	// save the report into the operational db
-	err = a.StageTelemetryReport(reqBody, &trReq.TelemetryReport.Header)
-	if err != nil {
-		ar.ErrorResponse(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// process pending reports
-	err = a.ProcessStagedReports()
-	if err != nil {
-		// err is a joined slice of multiple errors for which err.Error()
-		// will return a multiline string, one error per line, so prepend
-		// a summary error and fail request with combined error
-		ar.ErrorResponse(
-			http.StatusBadRequest,
-			fmt.Errorf("staged report processing failed:\n%w", err).Error(),
+	// telemetry reports can be either handled inline or staged
+	// for later processing
+	var stagingId int64 = 0
+	if !stageTelemetryReports {
+		err = a.ProcessTelemetryReport(&trReq.TelemetryReport)
+		if err != nil {
+			ar.ErrorResponse(
+				http.StatusBadRequest,
+				fmt.Errorf("report processing failed: %w", err).Error(),
+			)
+			return
+		}
+	} else {
+		// save the report into the operational db, obtaining the staging
+		// db's entry id if successful
+		stagingId, err = a.StageTelemetryReport(
+			reqBody,
+			&trReq.TelemetryReport.Header,
 		)
-		return
+		if err != nil {
+			ar.ErrorResponse(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		// process pending reports
+		err = a.ProcessStagedReports()
+		if err != nil {
+			// err is a joined slice of multiple errors for which err.Error()
+			// will return a multiline string, one error per line, so prepend
+			// a summary error and fail request with combined error
+			ar.ErrorResponse(
+				http.StatusBadRequest,
+				fmt.Errorf("staged report processing failed:\n%w", err).Error(),
+			)
+			return
+		}
 	}
 
-	// initialise a telemetry report response
-	trResp := restapi.NewTelemetryReportResponse(0, types.Now())
+	// initialise a telemetry report response, stagingId will be 0 if we
+	// processed the report inline, otherwise it will be the id of the
+	// entry in the staging table, which will be processed at a later time.
+	trResp := restapi.NewTelemetryReportResponse(stagingId, types.Now())
 	ar.Log.Debug("Response", slog.Any("trResp", trResp))
 
 	// respond success with the telemetry report response
 	ar.JsonResponse(http.StatusOK, trResp)
+}
+
+func (a *App) ProcessTelemetryReport(report *telemetrylib.TelemetryReport) error {
+	numBundles := len(report.TelemetryBundles)
+	var totalItems int
+
+	slog.Info(
+		"Processing telemetry report",
+		slog.String("reportId", report.Header.ReportId),
+		slog.String("reportClientId", report.Header.ReportClientId),
+		slog.Int("numBundles", numBundles),
+	)
+
+	// process available bundles, extracting the data items and
+	// storing them in the telemetry DB
+	for _, bundle := range report.TelemetryBundles {
+		numItems := len(bundle.TelemetryDataItems)
+
+		slog.Debug(
+			"Processing telemetry bundle",
+			slog.String("bundleId", bundle.Header.BundleId),
+			slog.String("bundleClientId", bundle.Header.BundleClientId),
+			slog.Int("numItems", numItems),
+		)
+
+		// for each data item in the bundle, process it
+		for _, item := range bundle.TelemetryDataItems {
+			slog.Debug(
+				"Processing telemetry data item",
+				slog.String("telemetryId", item.Header.TelemetryId),
+				slog.String("telemetryType", item.Header.TelemetryType),
+			)
+
+			if err := a.StoreTelemetry(&item, &bundle.Header); err != nil {
+				slog.Error(
+					"Failed to store telemetry data item",
+					slog.String("telemetryId", item.Header.TelemetryId),
+					slog.String("telemetryType", item.Header.TelemetryType),
+					slog.String("bundleId", bundle.Header.BundleId),
+					slog.String("bundleClientId", bundle.Header.BundleClientId),
+					slog.String("error", err.Error()),
+				)
+				return fmt.Errorf(
+					"failed to store telemetry item %q from bundle %q in report %q: %w",
+					item.Header.TelemetryId,
+					bundle.Header.BundleId,
+					report.Header.ReportId,
+					err,
+				)
+			}
+		}
+
+		// increment the number of items processed
+		totalItems += numItems
+	}
+
+	slog.Info(
+		"Successfully processed telemetry report",
+		slog.String("reportId", report.Header.ReportId),
+		slog.String("reportClientId", report.Header.ReportClientId),
+		slog.Int("numBundles", numBundles),
+		slog.Int("totalItems", totalItems),
+	)
+
+	return nil
 }

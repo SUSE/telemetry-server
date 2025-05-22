@@ -11,7 +11,7 @@ import (
 	"github.com/SUSE/telemetry/pkg/types"
 )
 
-func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.TelemetryReportHeader) (err error) {
+func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.TelemetryReportHeader) (stagingId int64, err error) {
 	// Stores the report body in the operational database's reports table
 
 	// create a ReportStagingTableRow struct
@@ -23,12 +23,13 @@ func (a *App) StageTelemetryReport(reqBody []byte, rHeader *telemetrylib.Telemet
 	}
 
 	reportStagingRow.Init(
-		fmt.Sprintf("%q", rHeader.ReportClientId),
+		rHeader.ReportClientId,
 		rHeader.ReportId,
 		reqBody,
 	)
 
-	if err = reportStagingRow.Insert(); err != nil {
+	stagingId, err = reportStagingRow.Insert()
+	if err != nil {
 		slog.Error("staged report insert failed", slog.String("report", reportStagingRow.ReportIdentifer()), slog.String("error", err.Error()))
 	}
 
@@ -94,19 +95,11 @@ func (a *App) ProcessStagedReport(reportRow *ReportStagingTableRow) (err error) 
 		return
 	}
 
-	// process available bundles, extracting the data items and
-	// storing them in the telemetry DB
-	for _, bundle := range report.TelemetryBundles {
-		bKey := bundle.Header.BundleId
-		slog.Info("Processing", slog.String("bundleId", bKey))
-
-		// for each data item in the bundle, process it
-		for _, item := range bundle.TelemetryDataItems {
-			if err := a.StoreTelemetry(&item, &bundle.Header); err != nil {
-				slog.Error("failed to store telemetry data from bundle %q: %s", bKey, err.Error())
-				return err
-			}
-		}
+	err = a.ProcessTelemetryReport(&report)
+	if err != nil {
+		slog.Error(
+			"Failed to process telemetry report",
+		)
 	}
 
 	return
@@ -291,7 +284,7 @@ func (r *ReportStagingTableRow) FirstUnallocated() bool {
 	return true
 }
 
-func (r *ReportStagingTableRow) Insert() (err error) {
+func (r *ReportStagingTableRow) Insert() (stagingId int64, err error) {
 	stmt, err := r.InsertStmt(
 		[]string{
 			"clientId",
@@ -325,7 +318,10 @@ func (r *ReportStagingTableRow) Insert() (err error) {
 			slog.String("report", r.ReportIdentifer()),
 			slog.String("error", err.Error()),
 		)
+		return
 	}
+
+	stagingId = r.Id
 
 	return
 }
