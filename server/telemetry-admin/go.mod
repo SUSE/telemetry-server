@@ -19,7 +19,7 @@ require (
 )
 
 require (
-	github.com/SUSE/telemetry v0.1.5
+	github.com/SUSE/telemetry v0.1.6
 	github.com/SUSE/telemetry-server v0.1.9
 )
 

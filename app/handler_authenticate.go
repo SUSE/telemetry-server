@@ -54,11 +54,14 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 
 	// confirm that the provided registration hash matches the registered one
 	regHash := client.GetClientRegistration().Hash(caReq.RegHash.Method)
-	if !regHash.Match(&caReq.RegHash) {
+	// TODO: remove HashJSON() workaround when no longer needed
+	regHashJSON := client.GetClientRegistration().HashJSON(caReq.RegHash.Method)
+	if !regHash.Match(&caReq.RegHash) && !regHashJSON.Match(&caReq.RegHash) {
 		ar.Log.Error(
 			"Registration hash mismatch",
 			slog.String("Req Hash", caReq.RegHash.String()),
 			slog.String("DB Hash", regHash.String()),
+			slog.String("DB HashJSON", regHashJSON.String()),
 		)
 		// client needs to re-register
 		ar.SetWwwAuthRegister()
