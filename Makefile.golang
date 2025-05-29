@@ -1,10 +1,15 @@
-GO_COVERAGE_PROFILE ?= /tmp/.coverage.telemetry-server.out
+makefile_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
+GO_COVERAGE_PROFILE ?= $(abspath $(makefile_dir)/.coverage.telemetry-server.out)
 
-GO_NO_PROXY = github.com/SUSE
+export GONOPROXY=github.com/SUSE
 
-.DEFAULT_GOAL := build
+telemetry_client=$(GONOPROXY)/telemetry
 
-.PHONY: fmt vet build build-only clean test-clean test-verbose mod-tidy mod-update test-mod-update
+.PHONY: fmt vet build build-only clean test-clean test-verbose test-coverage mod-tidy mod-download mod-update test-mod-update telemetry-client-update
+
+APP_SUBDIRS = \
+	server/telemetry-admin \
+	server/telemetry-server
 
 fmt:
 	go fmt ./...
@@ -13,7 +18,11 @@ vet:
 	go vet ./...
 
 build-only:
-	go build ./...
+	go build ./... && \
+	for app_dir in $(APP_SUBDIRS); \
+	do \
+		(cd $${app_dir} && go build ./...); \
+	done
 
 build: vet build-only
 
@@ -23,26 +32,27 @@ clean:: test-clean
 test-clean:
 	go clean -testcache
 
-test: test-clean build
-	go test -cover -coverprofile=$(GO_COVERAGE_PROFILE) ./...
+test test-verbose: test-clean build
+	go test $(if $(findstring verbose,$@),-v) -cover -coverprofile=$(GO_COVERAGE_PROFILE) ./...
 
-test-verbose: test-clean build
-	go test -v -cover -coverprofile=$(GO_COVERAGE_PROFILE) ./... && \
+test-coverage: test
 	go tool cover --func=$(GO_COVERAGE_PROFILE)
 
 mod-tidy:
-	[ -e go.mod ] || exit 0; \
-	export GONOPROXY=${GO_NO_PROXY} && \
-	go mod tidy
+	go mod tidy -x
+
+mod-download:
+	go mod download -x
 
 mod-update:
-	[ -e go.mod ] || exit 0; \
-	export GONOPROXY=${GO_NO_PROXY} && \
 	go get -u -x && \
 	go mod tidy
 
 test-mod-update:
-	[ -e go.mod ] || exit 0; \
-	export GONOPROXY=${GO_NO_PROXY} && \
 	go get -u -t -x && \
 	go mod tidy
+
+telemetry-client-update:
+	go get -u -x $(telemetry_client) && \
+	go mod tidy
+	
