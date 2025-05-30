@@ -139,24 +139,14 @@ ARG GO_NO_PROXY
 ARG telemetryAdmin
 ARG telemetryServer
 
+# copy over toplevel files
+COPY LICENSE README.md Makefile* ./telemetry-server/
+
 # run go mod download for top-level directory
 RUN cd telemetry-server; \
-	env GONOPROXY=${GO_NO_PROXY} go mod download -x
-
-# Copy admin go.mod and go.sum to dest directory and run go mod download
-COPY server/${telemetryAdmin}/go.mod ./telemetry-server/server/${telemetryAdmin}/
-COPY server/${telemetryAdmin}/go.sum ./telemetry-server/server/${telemetryAdmin}/
-RUN cd telemetry-server/server/${telemetryAdmin}; \
-	env GONOPROXY=${GO_NO_PROXY} go mod download -x
-
-# Copy server go.mod and go.sum to dest directory and run go mod download
-COPY server/${telemetryServer}/go.mod ./telemetry-server/server/${telemetryServer}/
-COPY server/${telemetryServer}/go.sum ./telemetry-server/server/${telemetryServer}/
-RUN cd telemetry-server/server/${telemetryServer}; \
-	env GONOPROXY=${GO_NO_PROXY} go mod download -x
+	make mod-download
 
 # Copy over only the required contents to run make build
-COPY LICENSE Makefile* ./telemetry-server/
 COPY app ./telemetry-server/app/
 COPY server ./telemetry-server/server/
 
@@ -164,7 +154,7 @@ COPY server ./telemetry-server/server/
 # telemetry repo is being used
 RUN cd telemetry-server; \
 	if [[ -d ../telemetry ]]; then \
-		env GONOPROXY=${GO_NO_PROXY} make mod-tidy; \
+		make mod-tidy; \
 	fi; \
 	env GOFLAGS=-v make build-only
 
