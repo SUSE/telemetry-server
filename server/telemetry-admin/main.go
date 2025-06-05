@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/SUSE/telemetry-server/app"
+	"github.com/SUSE/telemetry-server/app/config"
 	"github.com/SUSE/telemetry/pkg/logging"
 	"github.com/gorilla/mux"
 )
@@ -54,7 +55,7 @@ func main() {
 
 	slog.Debug("Preparing to start gorilla/mux based server", slog.Any("options", opts))
 
-	cfg := app.NewConfig(opts.Config)
+	cfg := config.NewConfig(opts.Config)
 	if err := cfg.Load(); err != nil {
 		slog.Error("config load failed", slog.String("config", opts.Config), slog.String("error", err.Error()))
 		panic(err)
@@ -69,7 +70,7 @@ func main() {
 
 func parseCommandLineFlags() {
 	// define available flags
-	flag.StringVar(&opts.Config, "config", app.DEFAULT_CONFIG, "Path to `config` file to use")
+	flag.StringVar(&opts.Config, "config", config.DEFAULT_CONFIG, "Path to `config` file to use")
 	flag.BoolVar(&opts.Debug, "debug", false, "Enables debug level messages")
 
 	// parse supplied command line flags
@@ -83,7 +84,7 @@ func SetupRouterWrapper(router *mux.Router, app *app.App) {
 	router.HandleFunc("/live", wrapper.liveCheck).Methods("GET", "HEAD")
 }
 
-func InitializeApp(cfg *app.Config, debug bool) (a *app.App, router *mux.Router) {
+func InitializeApp(cfg *config.Config, debug bool) (a *app.App, router *mux.Router) {
 	router = mux.NewRouter()
 
 	a = app.NewApp("Admin", cfg, router, debug)

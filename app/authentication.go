@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SUSE/telemetry-server/app/config"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type AuthManager struct {
-	config       *AuthConfig
+	config       *config.AuthConfig
 	secret       []byte
 	duration     time.Duration
 	issuer       string
@@ -48,7 +49,7 @@ func authDuration(cfgDuration string) (timeDuration time.Duration, err error) {
 
 	// use the default duration if none specified
 	if stripped == "" {
-		stripped = DEF_AUTH_DURATION
+		stripped = config.DEF_AUTH_DURATION
 	}
 
 	sfx := strings.TrimLeft(stripped, " +-0123456789")
@@ -92,7 +93,7 @@ func authDuration(cfgDuration string) (timeDuration time.Duration, err error) {
 	return
 }
 
-func NewAuthManager(ac *AuthConfig) (am *AuthManager, err error) {
+func NewAuthManager(ac *config.AuthConfig) (am *AuthManager, err error) {
 	am = new(AuthManager)
 	am.secret, err = base64.StdEncoding.DecodeString(ac.Secret)
 	if err != nil {

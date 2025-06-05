@@ -8,19 +8,19 @@ import (
 	"os"
 	"testing"
 
+	"github.com/SUSE/telemetry-server/app"
+	"github.com/SUSE/telemetry-server/app/config"
 	"github.com/SUSE/telemetry/pkg/types"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/SUSE/telemetry-server/app"
 )
 
 type AppTestSuite struct {
 	suite.Suite
 	app           *app.App
-	config        *app.Config
+	config        *config.Config
 	router        *mux.Router
 	path          string
 	authToken     string
@@ -62,7 +62,7 @@ auth:
 	require.NoError(s.T(), err)
 	require.NoError(s.T(), tmpfile.Close())
 
-	s.config = app.NewConfig(tmpfile.Name())
+	s.config = config.NewConfig(tmpfile.Name())
 	err = s.config.Load()
 	require.NoError(s.T(), err)
 
@@ -80,7 +80,7 @@ auth:
 		Method: "sha256",
 		Value:  "56dad39883e6b69e68523e8991a9237422a13031fd5f136286045a3e9b79f3ce",
 	}
-	row := s.app.OperationalDB.DB().QueryRow(
+	row := s.app.OperationalDB.Conn().DB().QueryRow(
 		`INSERT INTO clients(`+
 			`clientId, `+
 			`systemUUID, `+

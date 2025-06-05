@@ -1,4 +1,4 @@
-package app
+package database
 
 import (
 	"database/sql"
@@ -19,6 +19,10 @@ var clientsTableSpec = TableSpec{
 		{Name: "registrationDate", Type: "VARCHAR"},
 		{Name: "authToken", Type: "VARCHAR"},
 	},
+}
+
+func GetClientsTableSpec() *TableSpec {
+	return &clientsTableSpec
 }
 
 type ClientsRow struct {
@@ -72,9 +76,9 @@ func (c *ClientsRow) String() string {
 	return string(bytes)
 }
 
-func (c *ClientsRow) SetupDB(db *DbConnection) (err error) {
-	c.tableSpec = &clientsTableSpec
-	return c.TableRowCommon.SetupDB(db)
+func (c *ClientsRow) SetupDB(adb *AppDb) (err error) {
+	c.tableSpec = GetClientsTableSpec()
+	return c.TableRowCommon.SetupDB(adb)
 }
 
 func (c *ClientsRow) Exists() bool {

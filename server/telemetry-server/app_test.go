@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SUSE/telemetry-server/app"
+	"github.com/SUSE/telemetry-server/app/config"
 	"github.com/SUSE/telemetry/pkg/types"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -22,15 +24,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/SUSE/telemetry-server/app"
-
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 )
 
 type AppTestSuite struct {
 	suite.Suite
 	app           *app.App
-	config        *app.Config
+	config        *config.Config
 	router        *mux.Router
 	path          string
 	authToken     string
@@ -72,7 +72,7 @@ auth:
 	require.NoError(s.T(), err)
 	require.NoError(s.T(), tmpfile.Close())
 
-	s.config = app.NewConfig(tmpfile.Name())
+	s.config = config.NewConfig(tmpfile.Name())
 	err = s.config.Load()
 	require.NoError(s.T(), err)
 
@@ -90,7 +90,7 @@ auth:
 		Method: "sha256",
 		Value:  "1a374d367946699bddce3c749ec755ce4b8859c4c9984f3c1f41460ce3bbed9c",
 	}
-	row := s.app.OperationalDB.DB().QueryRow(
+	row := s.app.OperationalDB.Conn().DB().QueryRow(
 		`INSERT INTO clients(`+
 			`clientId, `+
 			`systemUUID, `+
@@ -138,7 +138,7 @@ func (t *AppTestSuite) TestReportTelemetry() {
 }
 
 func (t *AppTestSuite) countCustomerIdEntries(customerId string) (count int, err error) {
-	row := t.app.TelemetryDB.DB().QueryRow(
+	row := t.app.TelemetryDB.Conn().DB().QueryRow(
 		`SELECT COUNT(id) from customers WHERE customerId = '` + customerId + `'`,
 	)
 	err = row.Scan(&count)

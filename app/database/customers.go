@@ -1,4 +1,4 @@
-package app
+package database
 
 import (
 	"database/sql"
@@ -24,6 +24,10 @@ var customersTableSpec = TableSpec{
 	},
 }
 
+func GetCustomersTableSpec() *TableSpec {
+	return &customersTableSpec
+}
+
 type CustomersRow struct {
 	// include common table row fields
 	TableRowCommon
@@ -38,9 +42,9 @@ func (r *CustomersRow) Init(customerId string) {
 	r.CustomerId = customerId
 }
 
-func (r *CustomersRow) SetupDB(db *DbConnection) (err error) {
-	r.tableSpec = &customersTableSpec
-	return r.TableRowCommon.SetupDB(db)
+func (r *CustomersRow) SetupDB(adb *AppDb) (err error) {
+	r.tableSpec = GetCustomersTableSpec()
+	return r.TableRowCommon.SetupDB(adb)
 }
 
 func (r *CustomersRow) TableName() string {
