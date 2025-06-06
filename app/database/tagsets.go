@@ -39,6 +39,10 @@ func (t *TagSetRow) SetupDB(adb *AppDb) error {
 	return t.TableRowCommon.SetupDB(adb)
 }
 
+func (t *TagSetRow) RowId() int64 {
+	return t.Id
+}
+
 func (t *TagSetRow) Exists() bool {
 	stmt, err := t.SelectStmt(
 		[]string{
@@ -77,7 +81,7 @@ func (t *TagSetRow) Insert() (err error) {
 	)
 	if err != nil {
 		slog.Error(
-			"exists statement generation failed",
+			"insert statement generation failed",
 			slog.String("table", t.TableName()),
 			slog.String("error", err.Error()),
 		)
@@ -100,3 +104,72 @@ func (t *TagSetRow) Insert() (err error) {
 
 	return
 }
+
+func (t *TagSetRow) Update() (err error) {
+	stmt, err := t.UpdateStmt(
+		[]string{
+			"tagSet",
+		},
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"update statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = t.DB().Exec(
+		stmt,
+		t.TagSet,
+		t.Id,
+	)
+	if err != nil {
+		slog.Error(
+			"update failed",
+			slog.String("table", t.TableName()),
+			slog.String("tagSet", t.TagSet),
+			slog.String("error", err.Error()),
+		)
+	}
+
+	return
+}
+
+func (t *TagSetRow) Delete() (err error) {
+	stmt, err := t.DeleteStmt(
+		[]string{
+			"id",
+		},
+	)
+	if err != nil {
+		slog.Error(
+			"delete statement generation failed",
+			slog.String("table", t.TableName()),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	_, err = t.DB().Exec(
+		stmt,
+		t.Id,
+	)
+	if err != nil {
+		slog.Error(
+			"delete failed",
+			slog.String("table", t.TableName()),
+			slog.Int64("id", t.Id),
+			slog.String("error", err.Error()),
+		)
+	}
+
+	return
+}
+
+// verify that TagSetRow conforms to the TableRowHandler interface
+var _ TableRowHandler = (*TagSetRow)(nil)
