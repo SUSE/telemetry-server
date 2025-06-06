@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/SUSE/telemetry-server/app/database"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
 )
@@ -41,8 +42,8 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	ar.Log.Debug("Unmarshaled", slog.Any("crReq", &crReq))
 
 	// register the client
-	client := new(ClientsRow)
-	if err = client.SetupDB(&a.OperationalDB); err != nil {
+	client := new(database.ClientsRow)
+	if err = client.SetupDB(a.OperationalDB); err != nil {
 		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
 		return

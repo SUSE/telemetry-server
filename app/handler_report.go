@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/SUSE/telemetry-server/app/database"
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
@@ -67,8 +68,8 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 	}
 
 	// verify that the request is from a registered client
-	client := new(ClientsRow)
-	if err = client.SetupDB(&a.OperationalDB); err != nil {
+	client := new(database.ClientsRow)
+	if err = client.SetupDB(a.OperationalDB); err != nil {
 		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
 		return
