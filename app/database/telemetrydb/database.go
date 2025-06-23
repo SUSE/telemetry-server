@@ -16,6 +16,7 @@ func GetTables() database.DbTables {
 	return telemetryDbTables
 }
 
+// Get a new Telemetry AppDb instance
 func New(cfg *config.Config) (*database.AppDb, error) {
 	return database.GetDb(
 		"Telemetry",

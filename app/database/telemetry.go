@@ -77,7 +77,7 @@ func (t *TelemetryDataRow) Init(
 
 func (t *TelemetryDataRow) SetupDB(adb *AppDb) (err error) {
 	// save DB reference
-	t.tableSpec = GetTelemetryTableSpec()
+	t.SetTableSpec(GetTelemetryTableSpec())
 	return t.TableRowCommon.SetupDB(adb)
 }
 

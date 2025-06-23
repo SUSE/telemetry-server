@@ -52,7 +52,7 @@ func NewApp(name string, cfg *config.Config, handler http.Handler, debugMode boo
 		panic(err)
 	}
 
-	// setup telemetry database
+	// setup operational database
 	a.OperationalDB, err = operationaldb.New(cfg)
 	if err != nil {
 		panic(err)
@@ -112,16 +112,28 @@ func (a *App) ListenOn() string {
 
 func (a *App) Initialize() (err error) {
 
-	// operational DB connect & setup
-	if err = a.OperationalDB.Connect(); err != nil {
-		slog.Error("Operational DB connection setup failed", slog.String("error", err.Error()))
-		return
+	adbs := []*database.AppDb{
+		a.TelemetryDB,
+		a.OperationalDB,
 	}
-
-	// telemetry DB connect & setup
-	if err = a.TelemetryDB.Connect(); err != nil {
-		slog.Error("Telemetry DB connection setup failed", slog.String("error", err.Error()))
-		return
+	for _, adb := range adbs {
+		slog.Debug(
+			"Attempting to DB connect and setup tables",
+			slog.String("database", adb.Name()),
+		)
+		// DB connect & setup tables
+		if err = adb.Connect(); err != nil {
+			slog.Error(
+				"DB connection and table setup failed",
+				slog.String("database", adb.Name()),
+				slog.String("error", err.Error()),
+			)
+			return
+		}
+		slog.Debug(
+			"Successful DB connect and setup tables",
+			slog.String("database", adb.Name()),
+		)
 	}
 
 	return

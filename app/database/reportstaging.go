@@ -45,7 +45,7 @@ func (r *ReportStagingTableRow) Init(clientId, reportId string, data any) {
 }
 
 func (r *ReportStagingTableRow) SetupDB(adb *AppDb) error {
-	r.tableSpec = GetReportsStagingTableSpec()
+	r.SetTableSpec(GetReportsStagingTableSpec())
 	return r.TableRowCommon.SetupDB(adb)
 }
 

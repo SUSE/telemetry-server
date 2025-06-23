@@ -11,6 +11,7 @@ type TableSpecColumn struct {
 	Default    string
 	PrimaryKey bool
 	Identity   bool
+	Unique     bool
 }
 
 func (c *TableSpecColumn) Create(db *DbConnection) string {
@@ -26,6 +27,9 @@ func (c *TableSpecColumn) Create(db *DbConnection) string {
 	}
 	if c.PrimaryKey {
 		elements = append(elements, "PRIMARY", "KEY")
+	}
+	if c.Unique {
+		elements = append(elements, "UNIQUE")
 	}
 	if c.Identity {
 		switch {
