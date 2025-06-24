@@ -77,7 +77,7 @@ func (c *ClientsRow) String() string {
 }
 
 func (c *ClientsRow) SetupDB(adb *AppDb) (err error) {
-	c.tableSpec = GetClientsTableSpec()
+	c.SetTableSpec(GetClientsTableSpec())
 	return c.TableRowCommon.SetupDB(adb)
 }
 

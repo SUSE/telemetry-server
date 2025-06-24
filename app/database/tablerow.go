@@ -12,18 +12,36 @@ type TableRowCommon struct {
 	tableSpec *TableSpec
 }
 
-func (t *TableRowCommon) SetupDB(adb *AppDb) (err error) {
-	t.db = adb
+func (t *TableRowCommon) SetTableSpec(ts *TableSpec) {
+	t.tableSpec = ts
+}
 
+func (t *TableRowCommon) GetTableSpec() *TableSpec {
+	if t.tableSpec == nil {
+		err := fmt.Errorf("attempt to access unitialised TableRowCommon.tableSpec")
+		slog.Error(
+			"TableRowCommon.tableSpec not yet setup",
+			slog.String("error", err.Error()),
+		)
+		panic(err)
+	}
+
+	return t.tableSpec
+}
+
+func (t *TableRowCommon) SetupDB(adb *AppDb) (err error) {
 	// tableSpec should have already been initialised
 	if t.tableSpec == nil {
 		return fmt.Errorf("tableSpec should be initialised before calling SetupDB")
 	}
 
+	t.db = adb
+
 	return
 }
 
 func (t *TableRowCommon) DB() *sql.DB {
+	// SetupDB should have already been called
 	if t.db == nil {
 		err := fmt.Errorf("%q row db connection not setup", t.TableName())
 		slog.Error("TableRowCommon.db not setup", slog.String("error", err.Error()))
@@ -34,13 +52,7 @@ func (t *TableRowCommon) DB() *sql.DB {
 }
 
 func (t *TableRowCommon) TableName() string {
-	if t.tableSpec == nil {
-		err := fmt.Errorf("row table spec not setup")
-		slog.Error("TableRowCommon.tableSpec not setup", slog.String("error", err.Error()))
-		panic(err)
-	}
-
-	return t.tableSpec.Name
+	return t.GetTableSpec().Name
 }
 
 func (t *TableRowCommon) ColumnName(ind int) string {
@@ -68,9 +80,11 @@ func (t *TableRowCommon) Columns(inputColumns ...string) (columns []string, err 
 }
 
 type SelectOpts struct {
-	Count    bool
-	Distinct bool
-	Limit    uint
+	Count      bool
+	Distinct   bool
+	Limit      uint
+	OrderBy    string
+	Descending bool
 }
 
 func (t *TableRowCommon) SelectStmt(selectCols, whereCols []string, opts SelectOpts) (stmt string, err error) {
@@ -88,6 +102,13 @@ func (t *TableRowCommon) SelectStmt(selectCols, whereCols []string, opts SelectO
 		// ensure whereCols are valid
 		if err = t.tableSpec.CheckColumnNames(whereCols); err != nil {
 			return "", fmt.Errorf("invalid where column: %w", err)
+		}
+	}
+
+	if len(opts.OrderBy) > 0 {
+		// ensure whereCols are valid
+		if err = t.tableSpec.CheckColumnNames([]string{opts.OrderBy}); err != nil {
+			return "", fmt.Errorf("invalid orderby column: %w", err)
 		}
 	}
 
@@ -139,6 +160,14 @@ func (t *TableRowCommon) SelectStmt(selectCols, whereCols []string, opts SelectO
 
 			// add where clause with appropriate placeholder
 			stmt += whereCol + " = " + ph.Next()
+		}
+	}
+
+	// add an order by directive if specified
+	if opts.OrderBy != "" {
+		stmt += fmt.Sprintf(" ORDER BY %s", opts.OrderBy)
+		if opts.Descending {
+			stmt += " DESC"
 		}
 	}
 
@@ -297,7 +326,12 @@ func (t *TableRowCommon) DeleteStmt(whereCols []string) (stmt string, err error)
 }
 
 type TableRowHandler interface {
-	//TableRowCommonHandler
+	// Set the associated TableSpec
+	SetTableSpec(ts *TableSpec)
+
+	// Get the associated TableSpec
+	GetTableSpec() *TableSpec
+
 	// Setup DB access
 	SetupDB(*AppDb) error
 

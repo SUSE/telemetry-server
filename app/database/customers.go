@@ -43,7 +43,7 @@ func (r *CustomersRow) Init(customerId string) {
 }
 
 func (r *CustomersRow) SetupDB(adb *AppDb) (err error) {
-	r.tableSpec = GetCustomersTableSpec()
+	r.SetTableSpec(GetCustomersTableSpec())
 	return r.TableRowCommon.SetupDB(adb)
 }
 

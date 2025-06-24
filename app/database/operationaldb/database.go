@@ -15,6 +15,7 @@ func GetTables() database.DbTables {
 	return operationalDbTables
 }
 
+// Get a new Operational AppDb instance
 func New(cfg *config.Config) (*database.AppDb, error) {
 	return database.GetDb(
 		"Operational",

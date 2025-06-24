@@ -35,7 +35,7 @@ func (t *TagSetRow) String() string {
 }
 
 func (t *TagSetRow) SetupDB(adb *AppDb) error {
-	t.tableSpec = GetTagSetsTableSpec()
+	t.SetTableSpec(GetTagSetsTableSpec())
 	return t.TableRowCommon.SetupDB(adb)
 }
 
