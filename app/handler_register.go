@@ -41,13 +41,23 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	}
 	ar.Log.Debug("Unmarshaled", slog.Any("crReq", &crReq))
 
-	// register the client
-	client := new(database.ClientsRow)
-	if err = client.SetupDB(a.OperationalDB); err != nil {
-		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
+	//
+	// create an operationalDb transaction
+	//
+	odbTx, err := a.OperationalDB.StartTx()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// defer a rollback of the operationalDb transaction
+	defer func() {
+		a.OperationalDB.RollbackTx(odbTx, "RegisterClient")
+	}()
+
+	// register the client
+	client := new(database.ClientsRow)
+	client.SetupDB(a.OperationalDB, odbTx)
 
 	client.InitRegistration(&crReq)
 	// check if the supplied registration already exists, e.g. cloned system
@@ -82,6 +92,12 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	err = client.Insert()
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to register new client")
+		return
+	}
+
+	// commit the transaction
+	if err = a.OperationalDB.CommitTx(odbTx); err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to commit client registration")
 		return
 	}
 

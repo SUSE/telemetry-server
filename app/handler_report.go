@@ -67,14 +67,25 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		return
 	}
 
-	// verify that the request is from a registered client
-	client := new(database.ClientsRow)
-	if err = client.SetupDB(a.OperationalDB); err != nil {
-		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
+	//
+	// create an operationalDb transaction
+	//
+	odbTx, err := a.OperationalDB.StartTx()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// defer a rollback of the operationalDb transaction
+	defer func() {
+		a.OperationalDB.RollbackTx(odbTx, "AuthenticateClient")
+	}()
+
+	// verify that the request is from a registered client
+	client := new(database.ClientsRow)
+	client.SetupDB(a.OperationalDB, odbTx)
+
+	// check that the registration exists
 	client.InitRegistrationId(registrationId)
 	if !client.Exists() {
 		// client needs to register
@@ -90,6 +101,12 @@ func (a *App) ReportTelemetry(ar *AppRequest) {
 		// client needs to re-authenticate
 		ar.SetWwwAuthReauth()
 		ar.ErrorResponse(http.StatusUnauthorized, "Invalid Authorization")
+		return
+	}
+
+	// commit the transaction
+	if err = a.OperationalDB.CommitTx(odbTx); err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to commit client report")
 		return
 	}
 

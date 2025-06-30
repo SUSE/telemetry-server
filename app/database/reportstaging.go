@@ -44,9 +44,9 @@ func (r *ReportStagingTableRow) Init(clientId, reportId string, data any) {
 	r.ReceivedAt = types.Now().String()
 }
 
-func (r *ReportStagingTableRow) SetupDB(adb *AppDb) error {
+func (r *ReportStagingTableRow) SetupDB(adb *AppDb, tx *sql.Tx) {
 	r.SetTableSpec(GetReportsStagingTableSpec())
-	return r.TableRowCommon.SetupDB(adb)
+	r.TableRowCommon.SetupDB(adb, tx)
 }
 
 func (r *ReportStagingTableRow) ReportIdentifer() string {
@@ -73,7 +73,7 @@ func (r *ReportStagingTableRow) Exists() bool {
 		panic(err)
 	}
 
-	row := r.DB().QueryRow(
+	row := r.Tx().QueryRow(
 		stmt,
 		r.ClientId,
 		r.ReportId,
@@ -130,15 +130,8 @@ func (r *ReportStagingTableRow) FirstUnallocated() bool {
 		panic(err)
 	}
 
-	// begin a transaction
-	TX, err := r.DB().Begin()
-	if err != nil {
-		slog.Error("transaction begin failed", slog.String("error", err.Error()))
-		return false
-	}
-
 	// retrieve the first unallocated report from the table, returning false if none was found
-	row := TX.QueryRow(
+	row := r.Tx().QueryRow(
 		queryStmt,
 		false,
 	)
@@ -147,10 +140,6 @@ func (r *ReportStagingTableRow) FirstUnallocated() bool {
 			slog.Info("no unallocated staged report rows found")
 		} else {
 			slog.Error("unallocated staged report retrieval failed", slog.String("error", err.Error()))
-		}
-
-		if err := TX.Rollback(); err != nil {
-			slog.Error("empty transaction rollback failed", slog.String("error", err.Error()))
 		}
 
 		return false
@@ -162,7 +151,7 @@ func (r *ReportStagingTableRow) FirstUnallocated() bool {
 	r.Allocated = true
 	r.AllocatedAt = types.Now().String()
 
-	_, err = TX.Exec(
+	_, err = r.Tx().Exec(
 		updateStmt,
 		r.Allocated,
 		r.AllocatedAt,
@@ -170,20 +159,6 @@ func (r *ReportStagingTableRow) FirstUnallocated() bool {
 	)
 	if err != nil {
 		slog.Error("staged report update failed", slog.Int64("id", r.Id), slog.String("error", err.Error()))
-
-		if err := TX.Rollback(); err != nil {
-			slog.Error("update rollback failed", slog.String("error", err.Error()))
-		}
-
-		return false
-	}
-
-	if err := TX.Commit(); err != nil {
-		slog.Error("staged report transaction commit failed", slog.Int64("id", r.Id), slog.String("error", err.Error()))
-
-		if err := TX.Rollback(); err != nil {
-			slog.Error("failed to rollback update transaction: %s", slog.String("error", err.Error()))
-		}
 
 		return false
 	}
@@ -210,7 +185,7 @@ func (r *ReportStagingTableRow) Insert() (stagingId int64, err error) {
 		return
 	}
 
-	row := r.DB().QueryRow(
+	row := r.Tx().QueryRow(
 		stmt,
 		r.ClientId,
 		r.ReportId,
@@ -248,7 +223,7 @@ func (r *ReportStagingTableRow) Delete() (err error) {
 		return
 	}
 
-	_, err = r.DB().Exec(stmt, r.Id)
+	_, err = r.Tx().Exec(stmt, r.Id)
 	if err != nil {
 		slog.Error("report delete failed", slog.String("report", r.ReportIdentifer()), slog.String("error", err.Error()))
 		return err

@@ -13,12 +13,21 @@ const (
 )
 
 func (a *App) GetTagSetId(tagSet string) (tagSetId int64, err error) {
-
-	tsRow := new(database.TagSetRow)
-	if err = tsRow.SetupDB(a.TelemetryDB); err != nil {
-		slog.Error("TagSetRow.SetupDB failed", slog.String("error", err.Error()))
+	//
+	// create an telemetryDb transaction
+	//
+	tdbTx, err := a.TelemetryDB.StartTx()
+	if err != nil {
 		return
 	}
+
+	// defer a rollback of the telemetryDb transaction
+	defer func() {
+		a.TelemetryDB.RollbackTx(tdbTx, "AuthenticateClient")
+	}()
+
+	tsRow := new(database.TagSetRow)
+	tsRow.SetupDB(a.TelemetryDB, tdbTx)
 
 	tsRow.Init(tagSet)
 
@@ -32,6 +41,11 @@ func (a *App) GetTagSetId(tagSet string) (tagSetId int64, err error) {
 		}
 	}
 
+	// commit the transaction
+	if err = a.TelemetryDB.CommitTx(tdbTx); err != nil {
+		return
+	}
+
 	// save the tagSet's reference id if either already present or successfully inserted
 	if err == nil {
 		tagSetId = tsRow.Id
@@ -41,11 +55,21 @@ func (a *App) GetTagSetId(tagSet string) (tagSetId int64, err error) {
 }
 
 func (a *App) GetCustomerRefId(customerId string) (customerRefId int64, err error) {
-	cRow := new(database.CustomersRow)
-	if err = cRow.SetupDB(a.TelemetryDB); err != nil {
-		slog.Error("CustomersRow.SetupDB failed", slog.String("error", err.Error()))
+	//
+	// create an telemetryDb transaction
+	//
+	tdbTx, err := a.TelemetryDB.StartTx()
+	if err != nil {
 		return
 	}
+
+	// defer a rollback of the telemetryDb transaction
+	defer func() {
+		a.TelemetryDB.RollbackTx(tdbTx, "AuthenticateClient")
+	}()
+
+	cRow := new(database.CustomersRow)
+	cRow.SetupDB(a.TelemetryDB, tdbTx)
 
 	// determine actual customer id value to use
 	realCustomerId := strings.TrimSpace(customerId)
@@ -73,6 +97,11 @@ func (a *App) GetCustomerRefId(customerId string) (customerRefId int64, err erro
 		} else {
 			slog.Info("customerId added successfully", slog.String("customerId", cRow.CustomerId), slog.Int64("customerRefId", cRow.Id))
 		}
+	}
+
+	// commit the transaction
+	if err = a.TelemetryDB.CommitTx(tdbTx); err != nil {
+		return
 	}
 
 	// save the customerId's reference id if either already present or successfully inserted
@@ -129,9 +158,21 @@ func (a *App) StoreTelemetryData(
 	tagSetId int64,
 	customerRefId int64,
 ) (err error) {
-	tdRow := new(database.TelemetryDataRow)
+	//
+	// create an telemetryDb transaction
+	//
+	tdbTx, err := a.TelemetryDB.StartTx()
+	if err != nil {
+		return
+	}
 
-	tdRow.SetupDB(a.TelemetryDB)
+	// defer a rollback of the telemetryDb transaction
+	defer func() {
+		a.TelemetryDB.RollbackTx(tdbTx, "AuthenticateClient")
+	}()
+
+	tdRow := new(database.TelemetryDataRow)
+	tdRow.SetupDB(a.TelemetryDB, tdbTx)
 
 	err = tdRow.Init(dItm, bHdr, tagSetId, customerRefId)
 	if err != nil {
@@ -159,6 +200,11 @@ func (a *App) StoreTelemetryData(
 			slog.String("tableName", tdRow.TableName()),
 			slog.String("telemetryId", dItm.Header.TelemetryId),
 		)
+	}
+
+	// commit the transaction
+	if err = a.TelemetryDB.CommitTx(tdbTx); err != nil {
+		return
 	}
 
 	return

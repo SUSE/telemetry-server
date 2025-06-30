@@ -75,10 +75,10 @@ func (t *TelemetryDataRow) Init(
 	return
 }
 
-func (t *TelemetryDataRow) SetupDB(adb *AppDb) (err error) {
+func (t *TelemetryDataRow) SetupDB(adb *AppDb, tx *sql.Tx) {
 	// save DB reference
 	t.SetTableSpec(GetTelemetryTableSpec())
-	return t.TableRowCommon.SetupDB(adb)
+	t.TableRowCommon.SetupDB(adb, tx)
 }
 
 func (t *TelemetryDataRow) TableName() string {
@@ -122,7 +122,7 @@ func (t *TelemetryDataRow) Exists() bool {
 		panic(err)
 	}
 
-	row := t.DB().QueryRow(
+	row := t.Tx().QueryRow(
 		stmt,
 		t.ClientId,
 		t.TelemetryId,
@@ -174,7 +174,7 @@ func (t *TelemetryDataRow) Insert() (err error) {
 		return
 	}
 
-	row := t.DB().QueryRow(
+	row := t.Tx().QueryRow(
 		stmt,
 		t.ClientId,
 		t.CustomerRefId,
@@ -224,7 +224,7 @@ func (t *TelemetryDataRow) Update() (err error) {
 		return
 	}
 
-	_, err = t.DB().Exec(
+	_, err = t.Tx().Exec(
 		stmt,
 		t.ClientId,
 		t.CustomerRefId,
@@ -261,7 +261,7 @@ func (t *TelemetryDataRow) Delete() (err error) {
 		return
 	}
 
-	_, err = t.DB().Exec(
+	_, err = t.Tx().Exec(
 		stmt,
 		t.Id,
 	)

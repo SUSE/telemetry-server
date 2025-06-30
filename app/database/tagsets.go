@@ -34,9 +34,9 @@ func (t *TagSetRow) String() string {
 	return string(bytes)
 }
 
-func (t *TagSetRow) SetupDB(adb *AppDb) error {
+func (t *TagSetRow) SetupDB(adb *AppDb, tx *sql.Tx) {
 	t.SetTableSpec(GetTagSetsTableSpec())
-	return t.TableRowCommon.SetupDB(adb)
+	t.TableRowCommon.SetupDB(adb, tx)
 }
 
 func (t *TagSetRow) RowId() int64 {
@@ -62,7 +62,7 @@ func (t *TagSetRow) Exists() bool {
 		panic(err)
 	}
 
-	row := t.DB().QueryRow(stmt, t.TagSet)
+	row := t.Tx().QueryRow(stmt, t.TagSet)
 	if err := row.Scan(&t.Id); err != nil {
 		if err != sql.ErrNoRows {
 			slog.Error("tagSet existence check failed", slog.String("tagSet", t.TagSet), slog.String("error", err.Error()))
@@ -87,7 +87,7 @@ func (t *TagSetRow) Insert() (err error) {
 		)
 		return
 	}
-	row := t.DB().QueryRow(
+	row := t.Tx().QueryRow(
 		stmt,
 		t.TagSet,
 	)
@@ -123,7 +123,7 @@ func (t *TagSetRow) Update() (err error) {
 		return
 	}
 
-	_, err = t.DB().Exec(
+	_, err = t.Tx().Exec(
 		stmt,
 		t.TagSet,
 		t.Id,
@@ -155,7 +155,7 @@ func (t *TagSetRow) Delete() (err error) {
 		return
 	}
 
-	_, err = t.DB().Exec(
+	_, err = t.Tx().Exec(
 		stmt,
 		t.Id,
 	)
