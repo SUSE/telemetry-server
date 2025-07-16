@@ -55,6 +55,10 @@ func (c *ClientsRow) InitClientRegistration(reg *types.ClientRegistration) {
 	c.ClientTimestamp = reg.Timestamp
 }
 
+func (c *ClientsRow) InitClientId(crReq *restapi.ClientRegistrationRequest) {
+	c.ClientId = crReq.ClientRegistration.ClientId
+}
+
 func (c *ClientsRow) GetClientRegistration() *types.ClientRegistration {
 	return &types.ClientRegistration{
 		ClientId:   c.ClientId,

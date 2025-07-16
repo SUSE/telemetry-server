@@ -14,9 +14,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/SUSE/telemetry-server/app"
 	"github.com/SUSE/telemetry-server/app/config"
+	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -293,26 +295,114 @@ func (t *AppTestSuite) TestReportTelemetryCompressedPayloadDeflate() {
 
 }
 
+type clientTestReg struct {
+	Name         string
+	ClientId     string
+	SystemUUID   string
+	Timestamp    string
+	RegId        int64
+	DbClientId   string
+	DbSystemUUID string
+	DbTimestamp  string
+}
+
+func newClientTestReg(name string) *clientTestReg {
+	return &clientTestReg{
+		Name:       name,
+		ClientId:   uuid.New().String(),
+		SystemUUID: uuid.New().String(),
+		Timestamp:  time.Now().UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func (c *clientTestReg) ReqBody() string {
+	return fmt.Sprintf(
+		`{"clientRegistration":{"clientId":"%s","systemUUID":"%s", "timestamp":"%s"}}`,
+		c.ClientId,
+		c.SystemUUID,
+		c.Timestamp)
+}
+
 func (t *AppTestSuite) TestRegisterClient() {
 	//Test the wrapper.registerClient handler
 
-	// Create a POST request with the necessary body
-	id := uuid.New().String()
-	body := `{"clientRegistration":{"clientId":"%s","systemUUID":"%s", "timestamp":"%s"}}`
-	formattedBody := fmt.Sprintf(body, id, "", "2024-08-01T00:00:01.000000000Z")
-
-	rr, err := postToRegisterClientHandler(formattedBody, t)
-	assert.NoError(t.T(), err)
-	assert.Equal(t.T(), 200, rr.Code)
-
-	//Validate the response has these attributes
-	substrings := []string{"registrationId", "authToken", "registrationDate"}
-	for _, substring := range substrings {
-		if !strings.Contains(rr.Body.String(), substring) {
-			t.T().Errorf("String '%s' does not contain substring '%s'", rr.Body.String(), substring)
-		}
+	// create test clients
+	clients := []*clientTestReg{
+		newClientTestReg("one"),
+		newClientTestReg("two"),
+		newClientTestReg("oneagain"),
 	}
 
+	// make the 3rd client have the same clientId as the first
+	clients[2].ClientId = clients[0].ClientId
+
+	// verify that first two client clientIds are unique and the 3rd client's clientId matches the first
+	t.NotEqual(clients[0].ClientId, clients[1].ClientId, "clients %q and %q should have different clientIds", clients[0].Name, clients[1].Name)
+	t.NotEqual(clients[1].ClientId, clients[2].ClientId, "clients %q and %q should have different clientIds", clients[1].Name, clients[2].Name)
+	t.Equal(clients[0].ClientId, clients[2].ClientId, "clients %q and %q should have the same clientId", clients[0].Name, clients[2].Name)
+
+	// verify that each client clientId is unique
+	t.NotEqual(clients[0].SystemUUID, clients[1].SystemUUID, "clients %q and %q should have different systemUUIDs", clients[0].Name, clients[1].Name)
+	t.NotEqual(clients[1].SystemUUID, clients[2].SystemUUID, "clients %q and %q should have different systemUUIDs", clients[1].Name, clients[2].Name)
+	t.NotEqual(clients[2].SystemUUID, clients[0].SystemUUID, "clients %q and %q should have different systemUUIDs", clients[2].Name, clients[0].Name)
+
+	// verify that each client clientId is unique
+	t.NotEqual(clients[0].Timestamp, clients[1].Timestamp, "clients %q and %q should have different timestamps", clients[0].Name, clients[1].Name)
+	t.NotEqual(clients[1].Timestamp, clients[2].Timestamp, "clients %q and %q should have different timestamps", clients[1].Name, clients[2].Name)
+	t.NotEqual(clients[2].Timestamp, clients[0].Timestamp, "clients %q and %q should have different timestamps", clients[2].Name, clients[0].Name)
+
+	// register the defined clients and validate they registered correctly
+	for _, client := range clients {
+		// register the client
+		rr, err := postToRegisterClientHandler(client.ReqBody(), t)
+		t.NoError(err, "client %q /register failed", client.Name)
+		t.Equal(http.StatusOK, rr.Code, "client %q status code not StatusOK", client.Name)
+
+		// validate the response has these JSON attributes
+		substrings := []string{`"registrationId"`, `"authToken"`, `"registrationDate"`}
+		for _, substring := range substrings {
+			if !strings.Contains(rr.Body.String(), substring) {
+				t.T().Errorf("client %q reg resp %q does not contain substring %q", client.Name, rr.Body.String(), substring)
+			}
+		}
+
+		// determine the client's registrationId
+		var creds restapi.ClientRegistrationResponse
+		err = json.Unmarshal(rr.Body.Bytes(), &creds)
+		t.Require().NoError(err, "client %q reg resp json.Unmarshal() failed", client.Name)
+		t.NotZero(creds.RegistrationId, "client %q reg resp registrationId should be non-zero", client.Name)
+
+		// record the client registrationId
+		client.RegId = creds.RegistrationId
+	}
+
+	// verify that each client regId is unique
+	t.NotEqual(clients[0].RegId, clients[1].RegId, "clients %q and %q should have different regIds", clients[0].Name, clients[1].Name)
+	t.NotEqual(clients[1].RegId, clients[2].RegId, "clients %q and %q should have different regIds", clients[1].Name, clients[2].Name)
+	t.NotEqual(clients[2].RegId, clients[0].RegId, "clients %q and %q should have different regIds", clients[2].Name, clients[0].Name)
+
+	for _, client := range clients {
+		// retrieve the client registration data from the DB
+		row := t.app.OperationalDB.Conn().DB().QueryRow(
+			`SELECT `+
+				`clientId, `+
+				`systemUUID, `+
+				`clientTimestamp `+
+				`FROM clients WHERE id = ?`,
+			client.RegId,
+		)
+		err := row.Scan(
+			&client.DbClientId,
+			&client.DbSystemUUID,
+			&client.DbTimestamp,
+		)
+		t.Require().NoError(err, "client %q DB clients row.Scan() failed", client.Name)
+
+		// verify that the db registration data matches submitted registration data
+		t.Equal(client.ClientId, client.DbClientId, "client %q request clientId should match DB clientId", client.Name)
+		t.Equal(client.SystemUUID, client.DbSystemUUID, "client %q request systemUUID should match DB systemUUID", client.Name)
+		t.Equal(client.Timestamp, client.DbTimestamp, "client %q request timestamp should match DB timestamp", client.Name)
+	}
 }
 
 func (t *AppTestSuite) TestAuthenticateClient() {
