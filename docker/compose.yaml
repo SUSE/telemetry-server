@@ -79,8 +79,6 @@ services:
     environment:
       POSTGRES_PASSWORD: telemetry
       POSTGRES_USER: postgres
-    volumes:
-      - pgdata:/var/lib/pgsql/data
 
   init-db:
     image: telemetry/tools
