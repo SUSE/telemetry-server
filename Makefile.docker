@@ -3,7 +3,7 @@
 # this list
 TELEMETRY_CONTAINERS = \
   telemetry-server \
-	telemetry-tools
+  telemetry-tools
 
 # docker container actions
 .PHONY: docker-build docker-start docker-run docker-ps docker-status docker-logs docker-stop

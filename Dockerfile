@@ -55,6 +55,8 @@ FROM ${POSTGRES_BASE}:${POSTGRES_MAJOR} AS telemetry-postgres
 #
 FROM ${TOOLS_BASE}:${TOOLS_MAJOR} AS telemetry-tools
 
+ARG POSTGRES_MAJOR
+
 # Install required tools: AWS CLI, Postgres CLI, compression utilities
 # This image is used for all telemetry tooling
 # Add packages and scripts as needed
@@ -62,7 +64,7 @@ RUN set -euo pipefail; \
     zypper -n refresh && \
     zypper -n install --no-recommends \
         aws-cli \
-        postgresql16 \
+        postgresql${POSTGRES_MAJOR} \
         gzip \
         curl \
         bash && \
