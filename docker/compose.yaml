@@ -76,9 +76,6 @@ services:
     restart: always
     networks:
       - internal
-    environment:
-      POSTGRES_PASSWORD: telemetry
-      POSTGRES_USER: postgres
 
   init-db:
     image: telemetry/tools
