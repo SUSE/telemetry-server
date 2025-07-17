@@ -2,8 +2,8 @@
 # handled as well if telemetry-admin is added to the end of
 # this list
 TELEMETRY_CONTAINERS = \
-  telemetry-server
-
+  telemetry-server \
+	telemetry-tools
 
 # docker container actions
 .PHONY: docker-build docker-start docker-run docker-ps docker-status docker-logs docker-stop
