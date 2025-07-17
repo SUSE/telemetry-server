@@ -9,6 +9,7 @@ import (
 type TableRowCommon struct {
 	// private db settings
 	db        *AppDb
+	tx        *sql.Tx
 	tableSpec *TableSpec
 }
 
@@ -17,38 +18,78 @@ func (t *TableRowCommon) SetTableSpec(ts *TableSpec) {
 }
 
 func (t *TableRowCommon) GetTableSpec() *TableSpec {
-	if t.tableSpec == nil {
-		err := fmt.Errorf("attempt to access unitialised TableRowCommon.tableSpec")
-		slog.Error(
-			"TableRowCommon.tableSpec not yet setup",
-			slog.String("error", err.Error()),
-		)
-		panic(err)
+	if t.tableSpec != nil {
+		return t.tableSpec
 	}
 
-	return t.tableSpec
+	// panic with a useful error
+	err := fmt.Errorf("attempt to access unitialised TableRowCommon.tableSpec")
+	slog.Error(
+		"TableRowCommon.tableSpec not yet setup",
+		slog.String("error", err.Error()),
+	)
+	panic(err)
 }
 
-func (t *TableRowCommon) SetupDB(adb *AppDb) (err error) {
-	// tableSpec should have already been initialised
-	if t.tableSpec == nil {
-		return fmt.Errorf("tableSpec should be initialised before calling SetupDB")
+func (t *TableRowCommon) setDb(adb *AppDb) {
+	t.db = adb
+}
+
+func (t *TableRowCommon) getDb() *AppDb {
+	if t.db != nil {
+		return t.db
 	}
 
-	t.db = adb
+	// panic with a useful error
+	err := fmt.Errorf("attempt to access uninitialized TableRowCommon.db")
+	slog.Error(
+		"TableRowCommon.db not yet setup",
+		slog.String("err", err.Error()),
+	)
+	panic(err)
+}
 
-	return
+func (t *TableRowCommon) setTx(tx *sql.Tx) {
+	t.tx = tx
+}
+
+func (t *TableRowCommon) getTx() *sql.Tx {
+	if t.tx != nil {
+		return t.tx
+	}
+
+	// panic with a useful error
+	err := fmt.Errorf("attempt to access uninitialized TableRowCommon.tx")
+	slog.Error(
+		"TableRowCommon.tx not yet setup",
+		slog.String("err", err.Error()),
+	)
+	panic(err)
+}
+
+func (t *TableRowCommon) SetupDB(adb *AppDb, tx *sql.Tx) {
+	// tableSpec should have already been initialised by table specific SetupDB
+	if t.tableSpec != nil {
+		t.setDb(adb)
+		t.setTx(tx)
+		return
+	}
+
+	err := fmt.Errorf("tableSpec should be initialised before calling TableRowCommon.SetupDB")
+	slog.Error(
+		"",
+		"TableRowCommon.tableSpec not yet setup",
+		slog.String("err", err.Error()),
+	)
+	panic(err)
 }
 
 func (t *TableRowCommon) DB() *sql.DB {
-	// SetupDB should have already been called
-	if t.db == nil {
-		err := fmt.Errorf("%q row db connection not setup", t.TableName())
-		slog.Error("TableRowCommon.db not setup", slog.String("error", err.Error()))
-		panic(err)
-	}
+	return t.getDb().Conn().DB()
+}
 
-	return t.db.Conn().DB()
+func (t *TableRowCommon) Tx() *sql.Tx {
+	return t.getTx()
 }
 
 func (t *TableRowCommon) TableName() string {
@@ -333,7 +374,7 @@ type TableRowHandler interface {
 	GetTableSpec() *TableSpec
 
 	// Setup DB access
-	SetupDB(*AppDb) error
+	SetupDB(*AppDb, *sql.Tx)
 
 	// Retrieve the TableName
 	TableName() string

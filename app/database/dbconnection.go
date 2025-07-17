@@ -328,7 +328,7 @@ func (d *DbConnection) CreateTableFromSpec(table *TableSpec) (err error) {
 		)
 	}
 
-	// defer releaseing the advisory lock
+	// defer releasing the advisory lock
 	defer func() {
 		d.ReleaseAdvisdoryLock(CREATE_TABLE_ADVISORY, tx, false)
 	}()

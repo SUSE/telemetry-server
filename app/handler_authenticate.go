@@ -36,13 +36,27 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 	}
 	ar.Log.Debug("Unmarshaled", slog.Any("caReq", &caReq))
 
-	// register the client
-	client := new(database.ClientsRow)
-	if err = client.SetupDB(a.OperationalDB); err != nil {
-		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
+	//
+	// create an operationalDb transaction
+	//
+	odbTx, err := a.OperationalDB.StartTx()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// defer a rollback of the operationalDb transaction
+	defer func() {
+		a.OperationalDB.RollbackTx(odbTx, "AuthenticateClient")
+	}()
+
+	//
+	// register the client
+	//
+
+	// create a new ClientsRow and set it up
+	client := new(database.ClientsRow)
+	client.SetupDB(a.OperationalDB, odbTx)
 
 	// confirm that the client has been registered
 	client.InitAuthentication(&caReq)
@@ -83,6 +97,12 @@ func (a *App) AuthenticateClient(ar *AppRequest) {
 	err = client.Update()
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to client authtoken")
+		return
+	}
+
+	// commit the transaction
+	if err = a.OperationalDB.CommitTx(odbTx); err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to commit client authentication")
 		return
 	}
 
