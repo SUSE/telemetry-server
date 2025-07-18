@@ -68,8 +68,17 @@ services:
     volumes:
       - pgdata:/var/lib/pgsql/data
 
+  tools:
+    image: telemetry/tools
+    build:
+      context: ..
+      target: telemetry-tools
+    restart: always
+    networks:
+      - internal
+
   init-db:
-    image: telemetry/postgres
+    image: telemetry/tools
     networks:
       - internal
     environment:
@@ -84,7 +93,7 @@ services:
         condition: service_healthy
 
   pre-deploy-checks:
-    image: telemetry/postgres
+    image: telemetry/tools
     networks:
       - internal
     environment:

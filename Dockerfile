@@ -6,6 +6,12 @@ ARG GOLANG_BASE=registry.suse.com/bci/golang
 ARG GOLANG_VERSION=1.23-openssl
 
 #
+# Telemetry-tools Settings
+#
+ARG TOOLS_BASE=registry.suse.com/bci/bci-base
+ARG TOOLS_MAJOR=15.6
+
+#
 # PostgreSQL Settings
 #
 ARG POSTGRES_BASE=registry.suse.com/suse/postgres
@@ -44,9 +50,31 @@ ARG telemetryServer=telemetry-server
 #
 FROM ${POSTGRES_BASE}:${POSTGRES_MAJOR} AS telemetry-postgres
 
-# add the telemetry init scripting
+#
+# Build the customised telemetry-tools image
+#
+FROM ${TOOLS_BASE}:${TOOLS_MAJOR} AS telemetry-tools
+
+ARG POSTGRES_MAJOR
+
+# Install required tools: AWS CLI, Postgres CLI, compression utilities
+# This image is used for all telemetry tooling
+# Add packages and scripts as needed
+RUN set -euo pipefail; \
+    zypper -n refresh && \
+    zypper -n install --no-recommends \
+        aws-cli \
+        postgresql${POSTGRES_MAJOR} \
+        gzip \
+        curl \
+        bash && \
+    zypper clean -a
+
+# Add telemetry and backup scripts
 ADD docker/postgres/telemetry /telemetry
-RUN chmod +x /telemetry/*.bash
+ADD docker/postgres/backup /backup
+
+RUN chmod +x /telemetry/*.bash /backup/*.bash
 
 #
 # Build the code in BCI golang based image
