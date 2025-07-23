@@ -1,5 +1,4 @@
-makefile_dir := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
-GO_COVERAGE_PROFILE ?= $(abspath $(makefile_dir)/.coverage.telemetry-server.out)
+GO_COVERAGE_PROFILE ?= $(abspath $(REPO_BASE_DIR)/.coverage.telemetry-server.out)
 
 export GONOPROXY=github.com/SUSE
 
