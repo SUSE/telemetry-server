@@ -1,0 +1,69 @@
+APP_VERSION_PATH=app/VERSION
+VERSIONBUMP_DIR=bin/versionbump
+VERSIONBUMP=$(VERSIONBUMP_DIR)/versionbump
+VERSIONBUMP_BRANCH=main
+VERSIONBUMP_BUILD_DATE=$(shell date --utc +'%4Y%02m%02d')
+VERSIONBUMP_BUMP_MODE=patch
+VERSIONBUMP_DEBUG=false
+VERSIONBUMP_DRYRUN=false
+VERSIONBUMP_NOCHANGE=true
+VERSIONBUMP_NOCHANGE_GUARD=$(if $(filter true,$(VERSIONBUMP_NOCHANGE)),echo)
+VERSIONBUMP_NOCHANGE_UNDO=$(if $(filter true,$(VERSIONBUMP_NOCHANGE)),git co -- $(APP_VERSION_PATH))
+VERSIONBUMP_ARGS= \
+	--verbose \
+	$(if $(filter true,$(VERSIONBUMP_DEBUG)),--debug) \
+	$(if $(filter true,$(VERSIONBUMP_DRYRUN)),--dryrun)
+
+.PHONY: \
+	versionbump-build versionbump-clean \
+	versionbump-major versionbump-minor versionbump-patch \
+	versionbump-release versionbump-release-apply \
+	versionbump-dev versionbump-dev-apply \
+	show-version on-required-branch release
+
+show-version:
+	@cat $(APP_VERSION_PATH)
+
+versionbump-build: $(VERSIONBUMP)
+
+on-required-branch:
+	@branch=$$(git branch --show-current 2>/dev/null || git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD2>/dev/null); \
+	if [ "$${branch}" != "$(VERSIONBUMP_BRANCH)" ]; then \
+	  echo "Must be on main branch to use version management rules"; \
+	  exit 1; \
+	fi
+
+versionbump-major versionbump-minor versionbump-patch: on-required-branch versionbump-build
+	$(VERSIONBUMP) $(VERSIONBUMP_ARGS) $(patsubst bump-%,%,$@)
+
+release: versionbump-release-apply versionbump-dev-apply
+	$(VERSIONBUMP_NOCHANGE_UNDO)
+
+versionbump-release: on-required-branch versionbump-build
+	$(VERSIONBUMP) $(VERSIONBUMP_ARGS) --build $(VERSIONBUMP_BUILD_DATE) update
+
+versionbump-release-apply: versionbump-release
+	@rel_version=$$(cat $(APP_VERSION_PATH)); \
+	 rel_tag=$$(echo $${rel_version} | grep -Eo '^v[0-9]+([.][0-9]+([.][0-9]+))'); \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git add $(APP_VERSION_PATH); \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git commit -m "Set release version to $${rel_version}"; \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git push; \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git tag -a $${rel_tag} -m "$${rel_version} release"; \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git push --tags
+
+versionbump-dev: on-required-branch versionbump-build
+	$(VERSIONBUMP) $(VERSIONBUMP_ARGS) --prerelease dev $(VERSIONBUMP_BUMP_MODE)
+
+versionbump-dev-apply: versionbump-dev
+	@dev_version=$$(cat $(APP_VERSION_PATH)); \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git add $(APP_VERSION_PATH); \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git commit -m "Set development version to $${dev_version}"; \
+	 $(VERSIONBUMP_NOCHANGE_GUARD) git push
+
+$(VERSIONBUMP):: $(VERSIONBUMP_DIR)/*.go
+	cd $(VERSIONBUMP_DIR) && go build ./...
+
+versionbump-clean:
+	rm -f $(VERSIONBUMP)
+
+clean:: versionbump-clean

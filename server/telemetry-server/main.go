@@ -43,6 +43,10 @@ func (rw *routerWrapper) liveCheck(w http.ResponseWriter, r *http.Request) {
 	rw.app.LiveCheck(app.QuietAppRequest(w, r, mux.Vars(r)))
 }
 
+func (rw *routerWrapper) getVersion(w http.ResponseWriter, r *http.Request) {
+	rw.app.Version(app.QuietAppRequest(w, r, mux.Vars(r)))
+}
+
 // options is a struct of the options
 type options struct {
 	Config string `json:"config"`
@@ -97,6 +101,7 @@ func SetupRouterWrapper(router *mux.Router, app *app.App) {
 	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
 	router.HandleFunc("/healthz", wrapper.healthCheck).Methods("GET", "HEAD")
 	router.HandleFunc("/live", wrapper.liveCheck).Methods("GET", "HEAD")
+	router.HandleFunc("/version", wrapper.getVersion).Methods("GET", "HEAD")
 }
 
 func InitializeApp(cfg *config.Config, debug bool) (a *app.App, router *mux.Router) {

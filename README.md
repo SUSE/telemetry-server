@@ -1,5 +1,9 @@
 # SUSE Telemetry Gateway Server
-Implementation for the SUSE Telemetry Gateway service.
+This repository contains the implementation of the SUSE Telemetry Gateway
+services.
+
+For information about versioning and release management for this repository
+see [VERSIONING.md](VERSIONING.md)
 
 NOTE:
 Certain actions, such as `make generate` or actions that rely on it,
