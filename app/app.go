@@ -2,11 +2,13 @@ package app
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +19,16 @@ import (
 	"github.com/SUSE/telemetry/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// Telemetry Service Library Version
+//
+//go:embed VERSION
+var tslVersion string
+
+func GetVersion() string {
+	slog.Warn("GetVersion", slog.String("tslVersion", tslVersion))
+	return strings.TrimSpace(tslVersion)
+}
 
 // App is a struct tracking the resources associated with the application
 type App struct {
