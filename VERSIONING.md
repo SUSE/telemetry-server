@@ -70,7 +70,7 @@ changes because the `VERSIONBUMP_NOCHANGE` parameter is set to true.
 Additionally the `VERSIONBUMP_BUMP_MODE` parameter can be used to
 control which field of the version field gets bumped.
 
-With the `VERSIONBUMP_BUMP_MODE` parameter set to true, running the
+With the `VERSIONBUMP_NOCHANGE` parameter set to true, running the
 `release` rule will perform the appropriate `versionbump` operations,
 interspersed with printing the `git` commands that would be used to
 commit those version updates, tag the release and push these changes
