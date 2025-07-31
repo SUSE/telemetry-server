@@ -10,6 +10,7 @@ import (
 
 	"github.com/SUSE/telemetry-server/app"
 	"github.com/SUSE/telemetry-server/app/config"
+	"github.com/SUSE/telemetry-server/app/middleware"
 	"github.com/SUSE/telemetry/pkg/logging"
 	"github.com/gorilla/mux"
 )
@@ -93,12 +94,14 @@ func parseCommandLineFlags() {
 	flag.Parse()
 }
 
-func SetupRouterWrapper(router *mux.Router, app *app.App) {
+func SetupRouterWrapper(router *mux.Router, app *app.App, t *middleware.Throttler) {
 	wrapper := newRouterWrapper(router, app)
+
+	// Throttled routes
+	router.Handle("/telemetry/report", t.Wrap(http.HandlerFunc(wrapper.reportTelemetry))).Methods("POST")
 
 	router.HandleFunc("/telemetry/authenticate", wrapper.authenticateClient).Methods("POST")
 	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
-	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
 	router.HandleFunc("/healthz", wrapper.healthCheck).Methods("GET", "HEAD")
 	router.HandleFunc("/live", wrapper.liveCheck).Methods("GET", "HEAD")
 	router.HandleFunc("/version", wrapper.getVersion).Methods("GET", "HEAD")
@@ -108,8 +111,9 @@ func InitializeApp(cfg *config.Config, debug bool) (a *app.App, router *mux.Rout
 	router = mux.NewRouter()
 
 	a = app.NewApp("Server", cfg, router, debug)
+	t := middleware.NewThrottler(80)
 
-	SetupRouterWrapper(router, a)
+	SetupRouterWrapper(router, a, t)
 
 	if err := a.Initialize(); err != nil {
 		panic(err)
