@@ -1,6 +1,7 @@
 api:
   host: localhost
   port: 9999
+  max_parallel_requets: 80
 dbs:
   telemetry:
     driver: sqlite3
