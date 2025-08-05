@@ -96,9 +96,11 @@ func parseCommandLineFlags() {
 func SetupRouterWrapper(router *mux.Router, app *app.App) {
 	wrapper := newRouterWrapper(router, app)
 
-	router.HandleFunc("/telemetry/authenticate", wrapper.authenticateClient).Methods("POST")
-	router.HandleFunc("/telemetry/register", wrapper.registerClient).Methods("POST")
-	router.HandleFunc("/telemetry/report", wrapper.reportTelemetry).Methods("POST")
+	// Throttled routes
+	router.Handle("/telemetry/report", app.Throttler.Wrap(http.HandlerFunc(wrapper.reportTelemetry))).Methods("POST")
+	router.Handle("/telemetry/authenticate", app.Throttler.Wrap(http.HandlerFunc(wrapper.authenticateClient))).Methods("POST")
+	router.Handle("/telemetry/register", app.Throttler.Wrap(http.HandlerFunc(wrapper.registerClient))).Methods("POST")
+
 	router.HandleFunc("/healthz", wrapper.healthCheck).Methods("GET", "HEAD")
 	router.HandleFunc("/live", wrapper.liveCheck).Methods("GET", "HEAD")
 	router.HandleFunc("/version", wrapper.getVersion).Methods("GET", "HEAD")

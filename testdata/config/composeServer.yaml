@@ -1,6 +1,7 @@
 api:
   host: tsg
   port: 9999
+  max_parallel_requests: 80
 dbs:
   telemetry:
     driver: postgres

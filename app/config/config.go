@@ -15,8 +15,9 @@ const DEFAULT_CONFIG string = "/etc/susetelemetry/server.cfg"
 
 // API server config
 type APIConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+	Host           string `yaml:"host"`
+	Port           int    `yaml:"port"`
+	MaxParallelReq int    `yaml:"max_parallel_requests"`
 }
 
 type PQLConfig struct {

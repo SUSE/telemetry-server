@@ -10,6 +10,7 @@ import (
 
 	"github.com/SUSE/telemetry-server/app"
 	"github.com/SUSE/telemetry-server/app/config"
+	"github.com/SUSE/telemetry-server/app/middleware"
 	"github.com/SUSE/telemetry/pkg/types"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,7 @@ type AppTestSuite struct {
 	clientReg     types.ClientRegistration
 	clientRegHash types.ClientRegistrationHash
 	regId         int64
+	Throttler     *middleware.Throttler
 }
 
 // run before each test
@@ -44,6 +46,7 @@ func (s *AppTestSuite) SetupTest() {
 api:
   host: localhost
   port: 9998
+  max_parallel_requests: 80
 dbs:
   telemetry:
     driver: sqlite3

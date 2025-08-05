@@ -16,6 +16,7 @@ import (
 	"github.com/SUSE/telemetry-server/app/database"
 	"github.com/SUSE/telemetry-server/app/database/operationaldb"
 	"github.com/SUSE/telemetry-server/app/database/telemetrydb"
+	"github.com/SUSE/telemetry-server/app/middleware"
 	"github.com/SUSE/telemetry/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -41,6 +42,7 @@ type App struct {
 	Handler       http.Handler
 	LogManager    *logging.LogManager
 	AuthManager   *AuthManager
+	Throttler     *middleware.Throttler
 
 	// private
 	server    *http.Server
@@ -58,6 +60,7 @@ func NewApp(name string, cfg *config.Config, handler http.Handler, debugMode boo
 	a.Handler = handler
 	a.debugMode = debugMode
 	a.signals = make(chan os.Signal, 1)
+	a.Throttler = middleware.NewThrottler(a.Config.API.MaxParallelReq)
 
 	// setup logging first so remaining setup logs with config settings
 	if err := a.SetupLogging(); err != nil {
