@@ -74,7 +74,8 @@ With the `VERSIONBUMP_NOCHANGE` parameter set to true, running the
 `release` rule will perform the appropriate `versionbump` operations,
 interspersed with printing the `git` commands that would be used to
 commit those version updates, tag the release and push these changes
-upstream to the GitHub repository.
+upstream to the GitHub repository, and then undoes the local changes
+to the [app/VERSION](app/VERSION) file.
 
 The `release` rule checks that the active branch is the appropriate
 one as specified by the `VERSIONBUMP_BRANCH`.
