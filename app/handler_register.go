@@ -1,8 +1,8 @@
 package app
 
 import (
+	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -12,7 +12,7 @@ import (
 	"github.com/SUSE/telemetry/pkg/types"
 )
 
-func (a *App) duplicateClientCheck(ar *AppRequest, crReq *restapi.ClientRegistrationRequest) (err error) {
+func (a *App) duplicateClientCheck(ar *AppRequest, crReq *restapi.ClientRegistrationRequest, odbTx *sql.Tx) {
 	// check if the supplied registration's clientId already exists, e.g. a new
 	// client generated the same UUID value that an existing client is using, and
 	// log a warning.
@@ -21,10 +21,7 @@ func (a *App) duplicateClientCheck(ar *AppRequest, crReq *restapi.ClientRegistra
 	// SCC, which will assign clientId values that are unique with respect to all
 	// other registered clients at that time.
 	dup := new(database.ClientsRow)
-	if err = dup.SetupDB(a.OperationalDB); err != nil {
-		err = fmt.Errorf("clientsRow.SetupDB() for dup check failed: %w", err)
-		return
-	}
+	dup.SetupDB(a.OperationalDB, odbTx)
 	dup.InitClientId(crReq)
 	if dup.ClientIdExists() {
 		ar.Log.Warn(
@@ -35,8 +32,6 @@ func (a *App) duplicateClientCheck(ar *AppRequest, crReq *restapi.ClientRegistra
 			slog.String("timestamp", dup.ClientTimestamp),
 		)
 	}
-
-	return
 }
 
 // RegisterClient is responsible for handling client registrations
@@ -73,13 +68,23 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	// check validity of proposed client registration
 	//
 
-	// create a client row to check for the existence of the registration
-	client := new(database.ClientsRow)
-	if err = client.SetupDB(a.OperationalDB); err != nil {
-		ar.Log.Error("clientsRow.SetupDB() failed", slog.String("error", err.Error()))
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
+	//
+	// create an operationalDb transaction
+	//
+	odbTx, err := a.OperationalDB.StartTx()
+	if err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// defer a rollback of the operationalDb transaction
+	defer func() {
+		a.OperationalDB.RollbackTx(odbTx, "RegisterClient")
+	}()
+
+	// register the client
+	client := new(database.ClientsRow)
+	client.SetupDB(a.OperationalDB, odbTx)
 
 	// init with request supplied values
 	client.InitRegistration(&crReq)
@@ -91,11 +96,7 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	}
 
 	// check for a duplicate clientId
-	if err = a.duplicateClientCheck(ar, &crReq); err != nil {
-		ar.Log.Error("duplicate clientId check failed", slog.String("error", err.Error()))
-		ar.ErrorResponse(http.StatusInternalServerError, "failed to access DB")
-		return
-	}
+	a.duplicateClientCheck(ar, &crReq, odbTx)
 
 	//
 	// register the client
@@ -115,6 +116,12 @@ func (a *App) RegisterClient(ar *AppRequest) {
 	err = client.Insert()
 	if err != nil {
 		ar.ErrorResponse(http.StatusInternalServerError, "failed to register new client")
+		return
+	}
+
+	// commit the transaction
+	if err = a.OperationalDB.CommitTx(odbTx); err != nil {
+		ar.ErrorResponse(http.StatusInternalServerError, "failed to commit client registration")
 		return
 	}
 

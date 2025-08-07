@@ -1,6 +1,8 @@
 package database
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -75,6 +77,60 @@ func (adb *AppDb) EnsureTablesExist() (err error) {
 	}
 	slog.Info("Updated schemas", slog.String("database", adb.name))
 
+	return
+}
+
+func (adb *AppDb) StartTx() (*sql.Tx, error) {
+	return adb.Conn().DB().Begin()
+}
+
+func (adb *AppDb) RollbackTx(tx *sql.Tx, msg string) {
+	err := tx.Rollback()
+
+	// successs
+	if err == nil {
+		slog.Debug(
+			"RollbackTx succeeded",
+			slog.String("db", adb.name),
+			slog.String("message", msg),
+		)
+		return
+	}
+
+	// transaction or connection already completed
+	if errors.Is(err, sql.ErrTxDone) || errors.Is(err, sql.ErrConnDone) {
+		slog.Debug(
+			"RollbackTx failed",
+			slog.String("db", adb.name),
+			slog.String("message", msg),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	// an error occurred
+	slog.Error(
+		"failed to rollback transaction",
+		slog.String("db", adb.name),
+		slog.String("message", msg),
+		slog.String("error", err.Error()),
+	)
+}
+
+func (adb *AppDb) CommitTx(tx *sql.Tx) (err error) {
+	if err = tx.Commit(); err != nil {
+		slog.Error(
+			"CommitTx failed",
+			slog.String("db", adb.name),
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	slog.Debug(
+		"CommitTx succeeded",
+		slog.String("db", adb.name),
+	)
 	return
 }
 

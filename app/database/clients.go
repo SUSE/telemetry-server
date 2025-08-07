@@ -80,9 +80,9 @@ func (c *ClientsRow) String() string {
 	return string(bytes)
 }
 
-func (c *ClientsRow) SetupDB(adb *AppDb) (err error) {
+func (c *ClientsRow) SetupDB(adb *AppDb, tx *sql.Tx) {
 	c.SetTableSpec(GetClientsTableSpec())
-	return c.TableRowCommon.SetupDB(adb)
+	c.TableRowCommon.SetupDB(adb, tx)
 }
 
 func (c *ClientsRow) Exists() bool {
@@ -110,7 +110,7 @@ func (c *ClientsRow) Exists() bool {
 		panic(err)
 	}
 
-	row := c.DB().QueryRow(stmt, c.Id)
+	row := c.Tx().QueryRow(stmt, c.Id)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -158,7 +158,7 @@ func (c *ClientsRow) RegistrationExists() bool {
 		panic(err)
 	}
 
-	row := c.DB().QueryRow(
+	row := c.Tx().QueryRow(
 		stmt,
 		c.ClientId,
 		c.SystemUUID,
@@ -211,7 +211,7 @@ func (c *ClientsRow) ClientIdExists() bool {
 		panic(err)
 	}
 
-	row := c.DB().QueryRow(
+	row := c.Tx().QueryRow(
 		stmt,
 		c.ClientId,
 	)
@@ -258,7 +258,7 @@ func (c *ClientsRow) Insert() (err error) {
 		)
 		return
 	}
-	row := c.DB().QueryRow(
+	row := c.Tx().QueryRow(
 		stmt,
 		c.ClientId,
 		c.SystemUUID,
@@ -303,7 +303,7 @@ func (c *ClientsRow) Update() (err error) {
 		)
 		return
 	}
-	_, err = c.DB().Exec(
+	_, err = c.Tx().Exec(
 		stmt,
 		c.ClientId,
 		c.SystemUUID,
@@ -338,7 +338,7 @@ func (c *ClientsRow) Delete() (err error) {
 		return
 	}
 
-	_, err = c.DB().Exec(
+	_, err = c.Tx().Exec(
 		stmt,
 		c.Id,
 	)

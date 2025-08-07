@@ -42,9 +42,9 @@ func (r *CustomersRow) Init(customerId string) {
 	r.CustomerId = customerId
 }
 
-func (r *CustomersRow) SetupDB(adb *AppDb) (err error) {
+func (r *CustomersRow) SetupDB(adb *AppDb, tx *sql.Tx) {
 	r.SetTableSpec(GetCustomersTableSpec())
-	return r.TableRowCommon.SetupDB(adb)
+	r.TableRowCommon.SetupDB(adb, tx)
 }
 
 func (r *CustomersRow) TableName() string {
@@ -83,7 +83,7 @@ func (r *CustomersRow) Exists() bool {
 		panic(err)
 	}
 
-	row := r.DB().QueryRow(stmt, r.CustomerId, r.Deleted)
+	row := r.Tx().QueryRow(stmt, r.CustomerId, r.Deleted)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -126,7 +126,7 @@ func (r *CustomersRow) IdExists() bool {
 		panic(err)
 	}
 
-	row := r.DB().QueryRow(stmt, r.Id)
+	row := r.Tx().QueryRow(stmt, r.Id)
 	// if the entry was found, all fields not used to find the entry will have
 	// been updated to match what is in the DB
 	if err := row.Scan(
@@ -164,7 +164,7 @@ func (r *CustomersRow) Insert() (err error) {
 		)
 		return
 	}
-	row := r.DB().QueryRow(
+	row := r.Tx().QueryRow(
 		stmt,
 		r.CustomerId,
 		r.Deleted,
@@ -205,7 +205,7 @@ func (r *CustomersRow) Update() (err error) {
 		)
 		return
 	}
-	_, err = r.DB().Exec(
+	_, err = r.Tx().Exec(
 		stmt,
 		r.CustomerId,
 		r.Deleted,
@@ -239,7 +239,7 @@ func (r *CustomersRow) Delete() (err error) {
 		return
 	}
 
-	_, err = r.DB().Exec(
+	_, err = r.Tx().Exec(
 		stmt,
 		r.Id,
 	)
